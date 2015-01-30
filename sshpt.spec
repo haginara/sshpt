@@ -19,7 +19,7 @@ exe = EXE(pyz,
           name='sshpt.exe',
           debug=False,
           strip=None,
-          upx=False,
+          upx=True,
           console=True,
           icon='icon/sshpt.ico',)
 
