@@ -249,44 +249,37 @@ def queueSSHConnection(ssh_connect_queue, host, username, password, timeout, com
     ssh_connect_queue.put(queueObj)
     return True
 
-def paramikoConnect(host, username, timeout, port=22, key_file=os.path.expanduser('~/.ssh/id_rsa'), key_pass=""):
+def paramikoConnect(host, username, password, timeout, port=22, key_file="", key_pass=""):
     """Connects to 'host' and returns a Paramiko transport object to use in further communications"""
     # Uncomment this line to turn on Paramiko debugging (good for troubleshooting why some servers report connection failures)
     #paramiko.util.log_to_file('paramiko.log')
-    try:
-        key = paramiko.RSAKey.from_private_key_file(key_file)
-    except paramiko.PasswordRequiredException:
-        if key_pass == "":
-            passwd = getpass.getpass("Enter passphrase for %s: " % key_file)
-        else:
-            passwd = key_pass
-
+    key = None
+    ssh = paramiko.SSHClient()
+    if not key_file == "":
         try:
-            key = paramiko.RSAKey.from_private_key_file(key_file, password=passwd)
-        except paramiko.SSHException:
-            print 'Could not read private key; bad password?'
-            raise SystemExit(1)
-
-    ssh = paramiko.SSHClient()
-    try:
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host, port=port, username=username, timeout=timeout, pkey=key)
-    except Exception, detail:
-        # Connecting failed (for whatever reason)
-        ssh = str(detail)
-    return ssh
-
-def paramikoConnect(host, username, password, timeout, port=22):
-    """Connects to 'host' and returns a Paramiko transport object to use in further communications"""
-    # Uncomment this line to turn on Paramiko debugging (good for troubleshooting why some servers report connection failures)
-    #paramiko.util.log_to_file('paramiko.log')
-    ssh = paramiko.SSHClient()
-    try:
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host, port=port, username=username, password=password, timeout=timeout, pkey=key)
-    except Exception, detail:
-        # Connecting failed (for whatever reason)
-        ssh = str(detail)
+            key = paramiko.RSAKey.from_private_key_file(key_file)
+        except paramiko.PasswordRequiredException:
+            if key_pass == "":
+                passwd = getpass.getpass("Enter passphrase for %s: " % key_file)
+            else:
+                passwd = key_pass
+            try:
+                key = paramiko.RSAKey.from_private_key_file(key_file, password=passwd)
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(host, port=port, username=username, timeout=timeout, pkey=key)
+            except paramiko.SSHException, detail:
+                print 'Could not read private key; bad password?'
+                ssh = str(detail)
+            except Exception, detail:
+                # Connecting failed (for whatever reason)
+                ssh = str(detail)
+    else:
+        try:
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(host, port=port, username=username, password=password, timeout=timeout)
+        except Exception, detail:
+            # Connecting failed (for whatever reason)
+            ssh = str(detail)
     return ssh
 
 def sftpPut(transport, local_filepath, remote_filepath):
@@ -341,7 +334,7 @@ def attemptConnection(
 
     if host != "":
         try:
-            ssh = paramikoConnect(host, username, password, timeout, port=port)
+            ssh = paramikoConnect(host, username, password=password, timeout=timeout, port=port)
             if type(ssh) == type(""): # If ssh is a string that means the connection failed and 'ssh' is the details as to why
                 connection_result = False
                 command_output = ssh
@@ -385,49 +378,9 @@ def attemptConnection(
 
 
 def sshpt(
-        hostlist, # dictionary - Hosts to connect to
-        max_threads=10, # Maximum number of simultaneous connection attempts
-        timeout=30, # Connection timeout
-        commands=False, # List - Commands to execute on hosts (if False nothing will be executed)
-        local_filepath=False, # Local path of the file to SFTP
-        remote_filepath="/tmp/", # Destination path where the file should end up on the host
-        execute=False, # Whether or not the SFTP'd file should be executed after it is uploaded
-        remove=False, # Whether or not the SFTP'd file should be removed after execution
-        sudo=False, # Whether or not sudo should be used for commands and file operations
-        run_as='root', # User to become when using sudo
-        verbose=True, # Whether or not we should output connection results to stdout
-        outfile=None, # Path to the file where we want to store connection results
-        output_queue=None, # Queue.Queue() where connection results should be put().  If none is given it will use the OutputThread default (output_queue)
-        port=22, # Port to use when connecting
-        ):
-    """Given a list of hosts (hostlist) and credentials (username, password), connect to them all via ssh and optionally:
-        * Execute 'commands' on the host.
-        * SFTP a file to the host (local_filepath, remote_filepath) and optionally, execute it (execute).
-        * Execute said commands or file via sudo as root or another user (run_as).
-
-    If you're importing this program as a module you can pass this function your own Queue (output_queue) to be used for writing results via your own thread (e.g. to record results into a database or something other than CSV).  Alternatively you can just override the writeOut() method in OutputThread (it's up to you =)."""
-
-    if output_queue is None:
-        output_queue = startOutputThread(verbose, outfile)
-    # Start up the Output and SSH threads
-    ssh_connect_queue = startSSHQueue(output_queue, max_threads)
-
-    if not commands and not local_filepath: # Assume we're just doing a connection test
-        commands = ['echo CONNECTION TEST',]
-
-    while len(hostlist) != 0: # Only add items to the ssh_connect_queue if there are available threads to take them.
-        for host in hostlist:
-            if ssh_connect_queue.qsize() <= max_threads:
-                queueSSHConnection(ssh_connect_queue, host, hostlist[host][0], hostlist[host][1], timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port)
-                del hostlist[host]
-        sleep(1)
-    ssh_connect_queue.join() # Wait until all jobs are done before exiting
-    return output_queue
-
-def sshpt(
         hostlist, # List - Hosts to connect to
-        username,
-        password,
+        username="",
+        password="",
         max_threads=10, # Maximum number of simultaneous connection attempts
         timeout=30, # Connection timeout
         commands=False, # List - Commands to execute on hosts (if False nothing will be executed)
@@ -460,8 +413,17 @@ def sshpt(
     while len(hostlist) != 0: # Only add items to the ssh_connect_queue if there are available threads to take them.
         for host in hostlist:
             if ssh_connect_queue.qsize() <= max_threads:
-                queueSSHConnection(ssh_connect_queue, host, username, password, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port)
-                hostlist.remove(host)
+                if username == "" and password == "":
+                    host_info = host[0].split(':')
+                    if len(host_info) == 1:
+                        queueSSHConnection(ssh_connect_queue, host_info[0], host[1], host[2], timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port)
+                        hostlist.remove(host)
+                    elif len(host_info) == 2:
+                        queueSSHConnection(ssh_connect_queue, host_info[0], host[1], host[2], timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, host_info[1])
+                        hostlist.remove(host)
+                else:
+                    queueSSHConnection(ssh_connect_queue, host, username, password, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port)
+                    hostlist.remove(host)
         sleep(1)
     ssh_connect_queue.join() # Wait until all jobs are done before exiting
     return output_queue
@@ -525,14 +487,26 @@ def main():
     verbose = options.verbose
     outfile = options.outfile
 
-    if options.hostfile == None and not options.stdin:
-        print "Error: You must supply a file (-f <file>) containing the host list to check "
+    if options.hostfile == None and not options.stdin and options.host_auth_file == None:
+        print "Error: You must supply a file (-f <file>, -F <file>) containing the host list to check "
         print "or use the --stdin option to provide them via standard input"
         print "Use the -h option to see usage information."
         sys.exit(2)
         
+    if options.hostfile and options.stdin and options.host_auth_file:
+        print "Error: --file, --stdin and --host-auth-file are mutually exclusive.  Exactly one must be provided."
+        sys.exit(2)
+
+    if options.hostfile and options.host_auth_file:
+        print "Error: --file and --host-auth-file are mutually exclusive.  Exactly one must be provided."
+        sys.exit(2)
+
     if options.hostfile and options.stdin:
         print "Error: --file and --stdin are mutually exclusive.  Exactly one must be provided."
+        sys.exit(2)
+
+    if options.host_auth_file and options.stdin:
+        print "Error: --host-auth-file and --stdin are mutually exclusive.  Exactly one must be provided."
         sys.exit(2)
 
     if options.outfile is None and options.verbose is False:
@@ -546,19 +520,15 @@ def main():
 
     # Read in the host list to check
     if options.host_auth_file:
-        host_auth_list = open(options.host_auth_file).readlines()
+        host_auth_list = open(options.host_auth_file).read()
 
-        hostauthlist_list = dict()
-        for host in host_auth_list:
-            if host != "":
-                credential, host = host.split('@')
-                hostauthlist_list[host] = credential.split(":")
+        hostauthlist_list = list()
         try: # This wierd little sequence of loops allows us to hit control-C in the middle of program execution and get immediate results
-            for host in hostlist: # Turn the hostlist into an actual list
+            for host in host_auth_list.split("\n"):
                 if host != "":
-                    hostlist_list.append(host)
-            output_queue = sshpt(hostlist_list, max_threads, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, verbose, outfile, port=port)
-
+                    credential, host = host.split('@')
+                    hostauthlist_list.append([host] + credential.split(":"))
+            output_queue = sshpt(hostauthlist_list, max_threads=max_threads, timeout=timeout, commands=commands, local_filepath=local_filepath, remote_filepath=remote_filepath, execute=execute, remove=remove, sudo=sudo, run_as=run_as, verbose=verbose, outfile=outfile, port=port)
             output_queue.join() # Just to be safe we wait for the OutputThread to finish before moving on
         except KeyboardInterrupt:
             print 'caught KeyboardInterrupt, exiting...'
@@ -580,7 +550,7 @@ def main():
             # add username and password as well
             # Format:
             # <user:password>@<host>
-            hostlist = open(options.hostfile).readlines()
+            hostlist = open(options.hostfile)
 
         elif options.stdin:
             # if stdin wasn't piped in, prompt the user for it now
@@ -604,7 +574,7 @@ def main():
         hostlist_list = []
 
         try: # This wierd little sequence of loops allows us to hit control-C in the middle of program execution and get immediate results
-            for host in hostlist: # Turn the hostlist into an actual list
+            for host in hostlist.split("\n"): # Turn the hostlist into an actual list
                 if host != "":
                     hostlist_list.append(host)
             output_queue = sshpt(hostlist_list, username, password, max_threads, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, verbose, outfile, port=port)
