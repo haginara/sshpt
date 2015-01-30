@@ -7,8 +7,8 @@ import os
 import sshpt
 
 
-class Console(QtGui.QPlainTextEdit):
-    __pyqtSignals__ = ("pythonOutput(const QString &)",)
+class Console(QtGui.QLineEdit):
+    commandEntered = QtCore.Signal(str)
 
     def __init__(self, parent=None):
         super(Console, self).__init__(parent)
@@ -16,13 +16,12 @@ class Console(QtGui.QPlainTextEdit):
         self.history = []
         self.current = -1
 
-        self.document().setMaximumBlockCount(100)
         p = QtGui.QPalette()
         p.setColor(QtGui.QPalette.Base, QtCore.Qt.black)
         p.setColor(QtGui.QPalette.Text, QtCore.Qt.green)
         self.setPalette(p)
 
-        self.connect(self, QtCore.SIGNAL("returnPressed()"), self.execute)
+        self.returnPressed.connect(self.execute)
 
     def putData(self, data):
         """ InsertData """
@@ -32,12 +31,15 @@ class Console(QtGui.QPlainTextEdit):
         bar.setValue(bar.maximum())
 
     def keyReleaseEvent(self, event):
+        """
+        """
         if event.type() == QtCore.QEvent.KeyRelease:
             if event.key() == QtCore.Qt.Key_Up:
                 current = max(0, self.current - 1)
                 if 0 <= current < len(self.history):
                     self.setText(self.history[current])
                     self.current = current
+
                 event.accept()
             elif event.key() == QtCore.Qt.Key_Down:
                 current = min(len(self.history), self.current + 1)
@@ -48,38 +50,26 @@ class Console(QtGui.QPlainTextEdit):
                 self.current = current
 
                 event.accept()
-    def mousePressEvent(self, e):
-        self.setFocus()
-
     def execute(self):
-        qApp = QtGui.qApp
+        expression = self.text()
 
-        self.expression = self.text()
-        try:
-            result = str(eval(unicode(self.expression)))
+        self.clear()
+        self.history.append(expression)
+        self.current = len(self.history)
 
-            self.emit(QtCore.SIGNAL("pythonOutput(const QString &)"),
-                    QtCore.QString(result))
-
-            self.clear()
-            self.history.append(self.expression)
-            self.current = len(self.history)
-        except:
-            pass
-
-
-
-
-
+        self.commandEntered.emit(expression)
 
 class Window(QtGui.QMainWindow):
     def __init__(self, parent=None):
         super(Window, self).__init__(parent)
 
+        def runCommand(expr):
+            print(expr)
+
         console = Console()
+        console.commandEntered.connect(runCommand)
         #console.setEnabled(False)
         self.setCentralWidget(console)
-        
         self.setWindowTitle("SSH Power GUI Tool")
         self.resize(700, 500)
     
