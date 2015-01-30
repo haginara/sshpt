@@ -37,7 +37,7 @@ This program is meant for situations where shared keys are not an option.  If al
 """
 
 # Meta
-__version__ = '1.2.0'
+__version__ = '1.3.0'
 __license__ = "GNU General Public License (GPL) Version 3"
 __version_info__ = (1, 2, 0)
 __author__ = 'Dan McDougall <YouKnowWho@YouKnowWhat.com>'
@@ -256,7 +256,7 @@ def paramikoConnect(host, username, timeout, port=22, key_file=os.path.expanduse
     try:
         key = paramiko.RSAKey.from_private_key_file(key_file)
     except paramiko.PasswordRequiredException:
-        if key_pass =""
+        if key_pass == "":
             passwd = getpass.getpass("Enter passphrase for %s: " % key_file)
         else:
             passwd = key_pass
@@ -476,13 +476,13 @@ def main():
     parser.add_option("-f", "--file", dest="hostfile", default=None, help="Location of the file containing the host list.", metavar="<file>")
     parser.add_option("-F", "--host-auth-file", dest="host_auth_file", default=None, help="Location of the file containing the host and credentials list.", metavar="<file>")
     parser.add_option("-k", "--key-file", dest="keyfile", default=None, help="Location of the private key file", metavar="<file>")
-    parser.add_option("-P", "--key-pass", dest="keypass", default=None, help="The password to be used when use the private key file).", metavar="<password>")
+    parser.add_option("-K", "--key-pass", dest="keypass", default=None, help="The password to be used when use the private key file).", metavar="<password>")
     parser.add_option("-S", "--stdin", dest="stdin", default=False, action="store_true", help="Read hosts from standard input")
     parser.add_option("-o", "--outfile", dest="outfile", default=None, help="Location of the file where the results will be saved.", metavar="<file>")
     parser.add_option("-a", "--authfile", dest="authfile", default=None, help="Location of the file containing the credentials to be used for connections (format is \"username:password\").", metavar="<file>")
     parser.add_option("-t", "--threads", dest="max_threads", default=10, type="int", help="Number of threads to spawn for simultaneous connection attempts [default: 10].", metavar="<int>")
     parser.add_option("-p", "--port", dest="port", default=22, help="The port to be used when connecting.  Defaults to 22.", metavar="<port>")
-    parser.add_option("-u", "--username", dest="username", default=os.environ['LOGNAME'], help="The username to be used when connecting.  Defaults to the currently logged-in user.", metavar="<username>")
+    parser.add_option("-u", "--username", dest="username", default='root', help="The username to be used when connecting.  Defaults to the currently logged-in user.", metavar="<username>")
     parser.add_option("-P", "--password", dest="password", default=None, help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).", metavar="<password>")
     parser.add_option("-q", "--quiet", action="store_false", dest="verbose", default=True, help="Don't print status messages to stdout (only print errors).")
     parser.add_option("-c", "--copy-file", dest="copy_file", default=None, help="Location of the file to copy to and optionally execute (-x) on hosts.", metavar="<file>")
