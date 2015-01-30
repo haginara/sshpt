@@ -41,6 +41,7 @@ __version__ = '1.2.0'
 __license__ = "GNU General Public License (GPL) Version 3"
 __version_info__ = (1, 2, 0)
 __author__ = 'Dan McDougall <YouKnowWho@YouKnowWhat.com>'
+__second_author__ = 'Jonghak Choi <haginara@gmail.com>'
 
 # Import built-in Python modules
 import getpass, threading, Queue, sys, os, re, datetime
@@ -248,15 +249,41 @@ def queueSSHConnection(ssh_connect_queue, host, username, password, timeout, com
     ssh_connect_queue.put(queueObj)
     return True
 
+def paramikoConnect(host, username, timeout, port=22, key_file=os.path.expanduser('~/.ssh/id_rsa'), key_pass=""):
+    """Connects to 'host' and returns a Paramiko transport object to use in further communications"""
+    # Uncomment this line to turn on Paramiko debugging (good for troubleshooting why some servers report connection failures)
+    #paramiko.util.log_to_file('paramiko.log')
+    try:
+        key = paramiko.RSAKey.from_private_key_file(key_file)
+    except paramiko.PasswordRequiredException:
+        if key_pass =""
+            passwd = getpass.getpass("Enter passphrase for %s: " % key_file)
+        else:
+            passwd = key_pass
+
+        try:
+            key = paramiko.RSAKey.from_private_key_file(key_file, password=passwd)
+        except paramiko.SSHException:
+            print 'Could not read private key; bad password?'
+            raise SystemExit(1)
+
+    ssh = paramiko.SSHClient()
+    try:
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(host, port=port, username=username, timeout=timeout, pkey=key)
+    except Exception, detail:
+        # Connecting failed (for whatever reason)
+        ssh = str(detail)
+    return ssh
+
 def paramikoConnect(host, username, password, timeout, port=22):
     """Connects to 'host' and returns a Paramiko transport object to use in further communications"""
     # Uncomment this line to turn on Paramiko debugging (good for troubleshooting why some servers report connection failures)
     #paramiko.util.log_to_file('paramiko.log')
-    k = paramiko.RSAKey.from_private_key_file("/home/haginara/.ssh/priv_key")
     ssh = paramiko.SSHClient()
     try:
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host, port=port, username=username, password=password, timeout=timeout)
+        ssh.connect(host, port=port, username=username, password=password, timeout=timeout, pkey=key)
     except Exception, detail:
         # Connecting failed (for whatever reason)
         ssh = str(detail)
@@ -356,6 +383,47 @@ def attemptConnection(
             ssh.close()
         return connection_result, command_output
 
+
+def sshpt(
+        hostlist, # dictionary - Hosts to connect to
+        max_threads=10, # Maximum number of simultaneous connection attempts
+        timeout=30, # Connection timeout
+        commands=False, # List - Commands to execute on hosts (if False nothing will be executed)
+        local_filepath=False, # Local path of the file to SFTP
+        remote_filepath="/tmp/", # Destination path where the file should end up on the host
+        execute=False, # Whether or not the SFTP'd file should be executed after it is uploaded
+        remove=False, # Whether or not the SFTP'd file should be removed after execution
+        sudo=False, # Whether or not sudo should be used for commands and file operations
+        run_as='root', # User to become when using sudo
+        verbose=True, # Whether or not we should output connection results to stdout
+        outfile=None, # Path to the file where we want to store connection results
+        output_queue=None, # Queue.Queue() where connection results should be put().  If none is given it will use the OutputThread default (output_queue)
+        port=22, # Port to use when connecting
+        ):
+    """Given a list of hosts (hostlist) and credentials (username, password), connect to them all via ssh and optionally:
+        * Execute 'commands' on the host.
+        * SFTP a file to the host (local_filepath, remote_filepath) and optionally, execute it (execute).
+        * Execute said commands or file via sudo as root or another user (run_as).
+
+    If you're importing this program as a module you can pass this function your own Queue (output_queue) to be used for writing results via your own thread (e.g. to record results into a database or something other than CSV).  Alternatively you can just override the writeOut() method in OutputThread (it's up to you =)."""
+
+    if output_queue is None:
+        output_queue = startOutputThread(verbose, outfile)
+    # Start up the Output and SSH threads
+    ssh_connect_queue = startSSHQueue(output_queue, max_threads)
+
+    if not commands and not local_filepath: # Assume we're just doing a connection test
+        commands = ['echo CONNECTION TEST',]
+
+    while len(hostlist) != 0: # Only add items to the ssh_connect_queue if there are available threads to take them.
+        for host in hostlist:
+            if ssh_connect_queue.qsize() <= max_threads:
+                queueSSHConnection(ssh_connect_queue, host, hostlist[host][0], hostlist[host][1], timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port)
+                del hostlist[host]
+        sleep(1)
+    ssh_connect_queue.join() # Wait until all jobs are done before exiting
+    return output_queue
+
 def sshpt(
         hostlist, # List - Hosts to connect to
         username,
@@ -406,6 +474,9 @@ def main():
     parser = OptionParser(usage=usage, version=__version__)
     parser.disable_interspersed_args()
     parser.add_option("-f", "--file", dest="hostfile", default=None, help="Location of the file containing the host list.", metavar="<file>")
+    parser.add_option("-F", "--host-auth-file", dest="host_auth_file", default=None, help="Location of the file containing the host and credentials list.", metavar="<file>")
+    parser.add_option("-k", "--key-file", dest="keyfile", default=None, help="Location of the private key file", metavar="<file>")
+    parser.add_option("-P", "--key-pass", dest="keypass", default=None, help="The password to be used when use the private key file).", metavar="<password>")
     parser.add_option("-S", "--stdin", dest="stdin", default=False, action="store_true", help="Read hosts from standard input")
     parser.add_option("-o", "--outfile", dest="outfile", default=None, help="Location of the file where the results will be saved.", metavar="<file>")
     parser.add_option("-a", "--authfile", dest="authfile", default=None, help="Location of the file containing the credentials to be used for connections (format is \"username:password\").", metavar="<file>")
@@ -474,50 +545,85 @@ def main():
         sys.exit(2)
 
     # Read in the host list to check
-    if options.hostfile:
-        hostlist = open(options.hostfile).read()
-    elif options.stdin:
-        # if stdin wasn't piped in, prompt the user for it now
-        if not select.select([sys.stdin,],[],[],0.0)[0]:
-            sys.stdout.write("Enter list of hosts (one entry per line). ")
-            sys.stdout.write("Ctrl-D to end input.\n")
-        # in either case, read data from stdin
-        hostlist = sys.stdin.read()
+    if options.host_auth_file:
+        host_auth_list = open(options.host_auth_file).readlines()
 
-    if options.authfile is not None:
-        credentials = open(options.authfile).readline()
-        username, password = credentials.split(":")
-        password = password.rstrip('\n') # Get rid of trailing newline
-
-    # Get the username and password to use when checking hosts
-    if username == None:
-        username = raw_input('Username: ')
-    if password == None:
-        password = getpass.getpass('Password: ')
-
-    hostlist_list = []
-
-    try: # This wierd little sequence of loops allows us to hit control-C in the middle of program execution and get immediate results
-        for host in hostlist.split("\n"): # Turn the hostlist into an actual list
+        hostauthlist_list = dict()
+        for host in host_auth_list:
             if host != "":
-                hostlist_list.append(host)
-        output_queue = sshpt(hostlist_list, username, password, max_threads, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, verbose, outfile, port=port)
-        output_queue.join() # Just to be safe we wait for the OutputThread to finish before moving on
-    except KeyboardInterrupt:
-        print 'caught KeyboardInterrupt, exiting...'
-        return_code = 1 # Return code should be 1 if the user issues a SIGINT (control-C)
-        # Clean up
-        stopSSHQueue()
-        stopOutputThread()
-        sys.exit(return_code)
-    except Exception, detail:
-        print 'caught Exception...'
-        print detail
-        return_code = 2
-        # Clean up
-        stopSSHQueue()
-        stopOutputThread()
-        sys.exit(return_code)
+                credential, host = host.split('@')
+                hostauthlist_list[host] = credential.split(":")
+        try: # This wierd little sequence of loops allows us to hit control-C in the middle of program execution and get immediate results
+            for host in hostlist: # Turn the hostlist into an actual list
+                if host != "":
+                    hostlist_list.append(host)
+            output_queue = sshpt(hostlist_list, max_threads, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, verbose, outfile, port=port)
+
+            output_queue.join() # Just to be safe we wait for the OutputThread to finish before moving on
+        except KeyboardInterrupt:
+            print 'caught KeyboardInterrupt, exiting...'
+            return_code = 1 # Return code should be 1 if the user issues a SIGINT (control-C)
+            # Clean up
+            stopSSHQueue()
+            stopOutputThread()
+            sys.exit(return_code)
+        except Exception, detail:
+            print 'caught Exception...'
+            print detail
+            return_code = 2
+            # Clean up
+            stopSSHQueue()
+            stopOutputThread()
+            sys.exit(return_code)
+    else:
+        if options.hostfile:
+            # add username and password as well
+            # Format:
+            # <user:password>@<host>
+            hostlist = open(options.hostfile).readlines()
+
+        elif options.stdin:
+            # if stdin wasn't piped in, prompt the user for it now
+            if not select.select([sys.stdin,],[],[],0.0)[0]:
+                sys.stdout.write("Enter list of hosts (one entry per line). ")
+                sys.stdout.write("Ctrl-D to end input.\n")
+            # in either case, read data from stdin
+            hostlist = sys.stdin.read()
+
+        if options.authfile is not None:
+            credentials = open(options.authfile).readline()
+            username, password = credentials.split(":")
+            password = password.rstrip('\n') # Get rid of trailing newline
+
+        # Get the username and password to use when checking hosts
+        if username == None:
+            username = raw_input('Username: ')
+        if password == None:
+            password = getpass.getpass('Password: ')
+
+        hostlist_list = []
+
+        try: # This wierd little sequence of loops allows us to hit control-C in the middle of program execution and get immediate results
+            for host in hostlist: # Turn the hostlist into an actual list
+                if host != "":
+                    hostlist_list.append(host)
+            output_queue = sshpt(hostlist_list, username, password, max_threads, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, verbose, outfile, port=port)
+            output_queue.join() # Just to be safe we wait for the OutputThread to finish before moving on
+        except KeyboardInterrupt:
+            print 'caught KeyboardInterrupt, exiting...'
+            return_code = 1 # Return code should be 1 if the user issues a SIGINT (control-C)
+            # Clean up
+            stopSSHQueue()
+            stopOutputThread()
+            sys.exit(return_code)
+        except Exception, detail:
+            print 'caught Exception...'
+            print detail
+            return_code = 2
+            # Clean up
+            stopSSHQueue()
+            stopOutputThread()
+            sys.exit(return_code)
 
 if __name__ == "__main__":
     main()
