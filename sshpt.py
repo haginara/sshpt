@@ -550,7 +550,7 @@ def main():
             # add username and password as well
             # Format:
             # <user:password>@<host>
-            hostlist = open(options.hostfile)
+            hostlist = open(options.hostfile).read()
 
         elif options.stdin:
             # if stdin wasn't piped in, prompt the user for it now
