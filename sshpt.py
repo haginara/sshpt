@@ -48,6 +48,7 @@ import getpass, threading, Queue, sys, os, re, datetime
 from optparse import OptionParser
 from time import sleep
 import select
+import StringIO
 
 # Import 3rd party modules
 try:
@@ -165,6 +166,8 @@ class SSHThread(GenericThread):
                 host = queueObj['host']
                 username = queueObj['username']
                 password = queueObj['password']
+                keyfile = queueObj['keyfile']
+                keypass = queueObj['keypass']
                 timeout = queueObj['timeout']
                 commands = queueObj['commands']
                 local_filepath = queueObj['local_filepath']
@@ -179,6 +182,8 @@ class SSHThread(GenericThread):
                     host,
                     username,
                     password,
+                    keyfile,
+                    keypass,
                     timeout,
                     commands,
                     local_filepath,
@@ -231,12 +236,14 @@ def stopSSHQueue():
             t.quit()
     return True
 
-def queueSSHConnection(ssh_connect_queue, host, username, password, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port):
+def queueSSHConnection(ssh_connect_queue, host, username, password, keyfile, keypass, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port):
     """Add files to the SSH Queue (ssh_connect_queue)"""
     queueObj = {}
     queueObj['host'] = host
     queueObj['username'] = username
     queueObj['password'] = password
+    queueObj['keyfile'] = keyfile
+    queueObj['keypass'] = keypass
     queueObj['timeout'] = timeout
     queueObj['commands'] = commands
     queueObj['local_filepath'] = local_filepath
@@ -270,11 +277,14 @@ def paramikoConnect(host, username, password, timeout, port=22, key_file="", key
             except paramiko.SSHException, detail:
                 print 'Could not read private key; bad password?'
                 ssh = str(detail)
+                print 'SSHEXcetipn Hi'
             except Exception, detail:
                 # Connecting failed (for whatever reason)
                 ssh = str(detail)
+                print 'Exception Hi'
     else:
         try:
+            ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(host, port=port, username=username, password=password, timeout=timeout)
         except Exception, detail:
@@ -315,6 +325,8 @@ def attemptConnection(
         host,
         username,
         password,
+        keyfile,
+        keypass,
         timeout=30, # Connection timeout
         commands=False, # Either False for no commnads or a list
         local_filepath=False, # Local path of the file to SFTP
@@ -334,7 +346,7 @@ def attemptConnection(
 
     if host != "":
         try:
-            ssh = paramikoConnect(host, username, password=password, timeout=timeout, port=port)
+            ssh = paramikoConnect(host, username, password=password, timeout=timeout, port=port, key_file=keyfile, key_pass=keypass)
             if type(ssh) == type(""): # If ssh is a string that means the connection failed and 'ssh' is the details as to why
                 connection_result = False
                 command_output = ssh
@@ -370,7 +382,7 @@ def attemptConnection(
                 command_count = command_count + 1
         except Exception, detail:
             # Connection failed
-            #print "Exception: %s" % detail
+            print "Exception: %s" % detail
             connection_result = False
             command_output = detail
             ssh.close()
@@ -381,6 +393,8 @@ def sshpt(
         hostlist, # List - Hosts to connect to
         username="",
         password="",
+        keyfile="",
+        keypass="",
         max_threads=10, # Maximum number of simultaneous connection attempts
         timeout=30, # Connection timeout
         commands=False, # List - Commands to execute on hosts (if False nothing will be executed)
@@ -416,13 +430,13 @@ def sshpt(
                 if username == "" and password == "":
                     host_info = host[0].split(':')
                     if len(host_info) == 1:
-                        queueSSHConnection(ssh_connect_queue, host_info[0], host[1], host[2], timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port)
+                        queueSSHConnection(ssh_connect_queue, host_info[0], host[1], host[2], keyfile, keypass, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port)
                         hostlist.remove(host)
                     elif len(host_info) == 2:
-                        queueSSHConnection(ssh_connect_queue, host_info[0], host[1], host[2], timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, host_info[1])
+                        queueSSHConnection(ssh_connect_queue, host_info[0], host[1], host[2], keyfile, keypass, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, host_info[1])
                         hostlist.remove(host)
                 else:
-                    queueSSHConnection(ssh_connect_queue, host, username, password, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port)
+                    queueSSHConnection(ssh_connect_queue, host, username, password, keyfile, keypass, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port)
                     hostlist.remove(host)
         sleep(1)
     ssh_connect_queue.join() # Wait until all jobs are done before exiting
@@ -475,6 +489,8 @@ def main():
     # Assign the options to more readable variables
     username = options.username
     password = options.password
+    keyfile = options.keyfile
+    keypass = options.keypass
     port = options.port
     local_filepath = options.copy_file
     remote_filepath = options.destination
@@ -577,7 +593,7 @@ def main():
             for host in hostlist.split("\n"): # Turn the hostlist into an actual list
                 if host != "":
                     hostlist_list.append(host)
-            output_queue = sshpt(hostlist_list, username, password, max_threads, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, verbose, outfile, port=port)
+            output_queue = sshpt(hostlist_list, username, password, keyfile, keypass, max_threads, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, verbose, outfile, port=port)
             output_queue.join() # Just to be safe we wait for the OutputThread to finish before moving on
         except KeyboardInterrupt:
             print 'caught KeyboardInterrupt, exiting...'
