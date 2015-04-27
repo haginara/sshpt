@@ -46,6 +46,7 @@ __second_author__ = 'Jonghak Choi <haginara@gmail.com>'
 # Import built-in Python modules
 import getpass, threading, Queue, sys, os, re, datetime
 from optparse import OptionParser
+from argparse import ArgumentParser
 from time import sleep
 import select
 import StringIO
@@ -53,10 +54,10 @@ import StringIO
 # Import 3rd party modules
 try:
     import paramiko
-except:
+except ImportError:
     print("ERROR: The Paramiko module required to use sshpt.")
     print("Download it here: http://www.lag.net/paramiko/")
-    exit(1)
+    sys.exit(1)
 
 def normalizeString(string):
     """Removes/fixes leading/trailing newlines/whitespace and escapes double quotes with double quotes (to comply with CSV format)"""
@@ -442,39 +443,41 @@ def sshpt(
     ssh_connect_queue.join() # Wait until all jobs are done before exiting
     return output_queue
 
+
+def create_argument(usage):
+    parser = ArgumentParser(usage=usage, version=__version__)
+    #parser.disable_interspersed_args()
+    parser.add_argument("-f", "--file", dest="hostfile", default=None, help="Location of the file containing the host list.", metavar="<file>")
+    parser.add_argument("-F", "--host-auth-file", dest="host_auth_file", default=None, help="Location of the file containing the host and credentials list.", metavar="<file>")
+    parser.add_argument("-k", "--key-file", dest="keyfile", default=None, help="Location of the private key file", metavar="<file>")
+    parser.add_argument("-K", "--key-pass", dest="keypass", default=None, help="The password to be used when use the private key file).", metavar="<password>")
+    parser.add_argument("-S", "--stdin", dest="stdin", default=False, action="store_true", help="Read hosts from standard input")
+    parser.add_argument("-o", "--outfile", dest="outfile", default=None, help="Location of the file where the results will be saved.", metavar="<file>")
+    parser.add_argument("-a", "--authfile", dest="authfile", default=None, help="Location of the file containing the credentials to be used for connections (format is \"username:password\").", metavar="<file>")
+    parser.add_argument("-t", "--threads", dest="max_threads", default=10, type=int, help="Number of threads to spawn for simultaneous connection attempts [default: 10].", metavar="<int>")
+    parser.add_argument("-p", "--port", dest="port", default=22, help="The port to be used when connecting.  Defaults to 22.", metavar="<port>")
+    parser.add_argument("-u", "--username", dest="username", default='root', help="The username to be used when connecting.  Defaults to the currently logged-in user.", metavar="<username>")
+    parser.add_argument("-P", "--password", dest="password", default=None, help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).", metavar="<password>")
+    parser.add_argument("-q", "--quiet", action="store_false", dest="verbose", default=True, help="Don't print status messages to stdout (only print errors).")
+    parser.add_argument("-c", "--copy-file", dest="copy_file", default=None, help="Location of the file to copy to and optionally execute (-x) on hosts.", metavar="<file>")
+    parser.add_argument("-D", "--dest", dest="destination", default="/tmp/", help="Path where the file should be copied on the remote host (default: /tmp/).", metavar="<path>")
+    parser.add_argument("-x", "--execute", action="store_true", dest="execute", default=False, help="Execute the copied file (just like executing a given command).")
+    parser.add_argument("-r", "--remove", action="store_true", dest="remove", default=False, help="Remove (clean up) the SFTP'd file after execution.")
+    parser.add_argument("-T", "--timeout", dest="timeout", default=30, help="Timeout (in seconds) before giving up on an SSH connection (default: 30)", metavar="<seconds>")
+    parser.add_argument("-s", "--sudo", action="store_true", dest="sudo", default=False, help="Use sudo to execute the command (default: as root).")
+    parser.add_argument("-U", "--sudouser", dest="run_as", default="root", help="Run the command (via sudo) as this user.", metavar="<username>")
+
+    return parser
+
 def main():
     """Main program function:  Grabs command-line arguments, starts up threads, and runs the program."""
 
     # Grab command line arguments and the command to run (if any)
     usage = 'usage: %prog [options] "[command1]" "[command2]" ...'
-    parser = OptionParser(usage=usage, version=__version__)
-    parser.disable_interspersed_args()
-    parser.add_option("-f", "--file", dest="hostfile", default=None, help="Location of the file containing the host list.", metavar="<file>")
-    parser.add_option("-F", "--host-auth-file", dest="host_auth_file", default=None, help="Location of the file containing the host and credentials list.", metavar="<file>")
-    parser.add_option("-k", "--key-file", dest="keyfile", default=None, help="Location of the private key file", metavar="<file>")
-    parser.add_option("-K", "--key-pass", dest="keypass", default=None, help="The password to be used when use the private key file).", metavar="<password>")
-    parser.add_option("-S", "--stdin", dest="stdin", default=False, action="store_true", help="Read hosts from standard input")
-    parser.add_option("-o", "--outfile", dest="outfile", default=None, help="Location of the file where the results will be saved.", metavar="<file>")
-    parser.add_option("-a", "--authfile", dest="authfile", default=None, help="Location of the file containing the credentials to be used for connections (format is \"username:password\").", metavar="<file>")
-    parser.add_option("-t", "--threads", dest="max_threads", default=10, type="int", help="Number of threads to spawn for simultaneous connection attempts [default: 10].", metavar="<int>")
-    parser.add_option("-p", "--port", dest="port", default=22, help="The port to be used when connecting.  Defaults to 22.", metavar="<port>")
-    parser.add_option("-u", "--username", dest="username", default='root', help="The username to be used when connecting.  Defaults to the currently logged-in user.", metavar="<username>")
-    parser.add_option("-P", "--password", dest="password", default=None, help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).", metavar="<password>")
-    parser.add_option("-q", "--quiet", action="store_false", dest="verbose", default=True, help="Don't print status messages to stdout (only print errors).")
-    parser.add_option("-c", "--copy-file", dest="copy_file", default=None, help="Location of the file to copy to and optionally execute (-x) on hosts.", metavar="<file>")
-    parser.add_option("-D", "--dest", dest="destination", default="/tmp/", help="Path where the file should be copied on the remote host (default: /tmp/).", metavar="<path>")
-    parser.add_option("-x", "--execute", action="store_true", dest="execute", default=False, help="Execute the copied file (just like executing a given command).")
-    parser.add_option("-r", "--remove", action="store_true", dest="remove", default=False, help="Remove (clean up) the SFTP'd file after execution.")
-    parser.add_option("-T", "--timeout", dest="timeout", default=30, help="Timeout (in seconds) before giving up on an SSH connection (default: 30)", metavar="<seconds>")
-    parser.add_option("-s", "--sudo", action="store_true", dest="sudo", default=False, help="Use sudo to execute the command (default: as root).")
-    parser.add_option("-U", "--sudouser", dest="run_as", default="root", help="Run the command (via sudo) as this user.", metavar="<username>")
-    
-    (options, args) = parser.parse_args()
-
+    parser = create_argument(usage)
+    options = parser.parse_args()
     # Check to make sure we were passed at least one command line argument
-    try:
-        sys.argv[1]
-    except:
+    if not ( options.hostfile or options.stdin ):
         print "\nError:  At a minimum you must supply an input hostfile (-f) or pipe in the hostlist (--stdin)."
         parser.print_help()
         sys.exit(2)
@@ -508,7 +511,7 @@ def main():
         print "or use the --stdin option to provide them via standard input"
         print "Use the -h option to see usage information."
         sys.exit(2)
-        
+
     if options.hostfile and options.stdin and options.host_auth_file:
         print "Error: --file, --stdin and --host-auth-file are mutually exclusive.  Exactly one must be provided."
         sys.exit(2)
