@@ -36,7 +36,7 @@ This program is meant for situations where shared keys are not an option.  If al
 
 # Meta
 __license__ = "GNU General Public License (GPL) Version 3"
-__version_info__ = (1, 3, 1)
+__version_info__ = (1, 3, 2)
 __version__ = "%d.%d.%d"%__version_info__
 __author__ = 'Dan McDougall <YouKnowWho@YouKnowWhat.com>'
 __second_author__ = 'Jonghak Choi <haginara@gmail.com>'
@@ -58,10 +58,10 @@ from SSHQueue import SSHThread, startSSHQueue, stopSSHQueue
 
 class SSHPowerTool:
     def __init__(self):
-        self.username = None
-        self.password = None
-        self.keyfile = None
-        self.keypass = None
+        self.username = ""
+        self.password = ""
+        self.keyfile = ""
+        self.keypass = ""
         self.max_threads=10 # Maximum number of simultaneous connection attempts
         self.timeout=30 # Connection timeout
         self.commands=False # List - Commands to execute on hosts (if False nothing will be executed)
@@ -216,7 +216,7 @@ def main():
 
     # Assign the options to more readable variables
     sshpt.username = options.username
-    sshpt.assword = options.password
+    sshpt.password = options.password
     sshpt.keyfile = options.keyfile
     sshpt.keypass = options.keypass
     sshpt.port = options.port

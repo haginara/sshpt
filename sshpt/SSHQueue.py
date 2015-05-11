@@ -1,9 +1,8 @@
 from Generic import GenericThread, normalizeString
 
-import threading, Queue, sys, os, re, datetime
-from time import sleep
-import select
-import StringIO
+import sys, os
+import threading, Queue
+import getpass
 
 ## Deprecated
 #from optparse import OptionParser
@@ -95,6 +94,18 @@ class SSHThread(GenericThread):
             print detail
             self.quit()
 
+    def create_key(self, key_file, key_passwd):
+        try:
+            key = paramiko.RSAKey.from_private_key_file(key_file)
+        except paramiko.PasswordRequiredException:
+            if not key_passwd:
+                key_passwd = getpass.getpass("Enter passphrase for %s: " % key_file)
+            key = paramiko.RSAKey.from_private_key_file(key_file, password=key_passwd)
+        except Exception, detail:
+            print("Error: Create_key: ".format(detail))
+
+        return key
+
     def paramikoConnect(self, host, username, password, timeout, port=22, key_file="", key_pass=""):
         """Connects to 'host' and returns a Paramiko transport object to use in further communications"""
         # Uncomment this line to turn on Paramiko debugging (good for troubleshooting why some servers report connection failures)
@@ -103,23 +114,18 @@ class SSHThread(GenericThread):
         ssh = paramiko.SSHClient()
         if key_file:
             print 'KEY FILE', key_file
+            print 'KEY Pass', key_pass
+            key = self.create_key(key_file, key_pass)
             try:
-                key = paramiko.RSAKey.from_private_key_file(key_file)
-            except paramiko.PasswordRequiredException:
-                if key_pass == "":
-                    passwd = getpass.getpass("Enter passphrase for %s: " % key_file)
-                else:
-                    passwd = key_pass
-                try:
-                    key = paramiko.RSAKey.from_private_key_file(key_file, password=passwd)
-                    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                    ssh.connect(host, port=port, username=username, timeout=timeout, pkey=key)
-                except paramiko.SSHException, detail:
-                    print 'Could not read private key; bad password?'
-                    ssh = str(detail)
-                except Exception, detail:
-                    # Connecting failed (for whatever reason)
-                    ssh = str(detail)
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(host, port=port, username=username, timeout=timeout, pkey=key)
+            except paramiko.SSHException, detail:
+                print 'Could not read private key; bad password?'
+                ssh = str(detail)
+            except Exception, detail:
+                # Connecting failed (for whatever reason)
+                print('Connecting failed (for whatever reason)')
+                ssh = str(detail)
         else:
             try:
                 ssh = paramiko.SSHClient()
