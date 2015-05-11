@@ -31,12 +31,9 @@ setup(
     ], # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
     packages = find_packages(),
     #package_dir =  {'sshpt': 'sshpt'},
-    scripts = [
-        'sshpt/sshpt.py',
-    ],
     entry_points = {
         'console_scripts': [
-            'sshpt = sshpt.sshpt:main'
+            'sshpt=sshpt.sshpt:main'
         ]
     },
     install_requires=[
