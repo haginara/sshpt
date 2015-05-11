@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#from setuptools import setup, find_packages
-from distutils.core import setup
+#from distutils.core import setup
+from setuptools import setup, find_packages
 from sshpt import sshpt
 import sys, os
 
 version = sshpt.__version__
+
+EXCLUDE_FROM_PACKAGES=[ 'test' ]
+print  find_packages()
 
 setup(
     name = 'sshpt',
@@ -17,12 +20,7 @@ setup(
     url = 'http://code.google.com/p/sshpt/',
     description = 'SSH Power Tool - Run commands and copy files to multiple servers simultaneously WITHOUT requiring pre-shared authentication keys',
     long_description = open('README.txt').read(),
-    scripts = ['sshpt/sshpt.py'],
-    packages= ['sshpt', 'sshpt.test'],
-    entry_points = {
-        'console_scripts':
-            ['sshpt=sshpt.sshpt:main']
-    },
+    keywords='ssh administration parallel',
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: GNU General Public License (GPL)",
@@ -31,7 +29,16 @@ setup(
         "Programming Language :: Python :: 2.5",
         "Topic :: System :: Systems Administration",
     ], # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
-    keywords='ssh administration parallel',
+    packages = find_packages(),
+    #package_dir =  {'sshpt': 'sshpt'},
+    scripts = [
+        'sshpt/sshpt.py',
+    ],
+    entry_points = {
+        'console_scripts': [
+            'sshpt = sshpt.sshpt:main'
+        ]
+    },
     install_requires=[
         "paramiko>=1.15.0",
     ],

@@ -49,9 +49,6 @@ import select
 from argparse import ArgumentParser
 from time import sleep
 
-## Deprecated
-#from optparse import OptionParser
-
 # Import Internal
 from OutputThread import OutputThread, startOutputThread, stopOutputThread
 from SSHQueue import SSHThread, startSSHQueue, stopSSHQueue
@@ -205,7 +202,8 @@ def option_parse(options):
     return commands
 
 def main():
-    """Main program function:  Grabs command-line arguments, starts up threads, and runs the program."""
+    """Main program function:  Grabs command-line arguments, starts up threads, and runs the program.
+    """
     # Grab command line arguments and the command to run (if any)
     sshpt = SSHPowerTool()
     options = create_argument()
@@ -261,7 +259,7 @@ def main():
         sshpt.password = getpass.getpass('Password: ')
     if sshpt.password == '':
         print '\nPleas type the password'
-        sys.exit(2)
+        return 2
 
     hostlist_list = []
     try: # This wierd little sequence of loops allows us to hit control-C in the middle of program execution and get immediate results
@@ -276,7 +274,6 @@ def main():
         # Clean up
         stopSSHQueue()
         stopOutputThread()
-        sys.exit(return_code)
     except Exception, detail:
         print 'caught Exception...'
         print(sys.exc_info())
@@ -285,7 +282,7 @@ def main():
         # Clean up
         stopSSHQueue()
         stopOutputThread()
-        sys.exit(return_code)
+    return return_code
 
 if __name__ == "__main__":
     main()
