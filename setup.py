@@ -1,17 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from setuptools import setup, find_packages
+#from setuptools import setup, find_packages
+from distutils.core import setup
+from sshpt import sshpt
 import sys, os
 
-version = '1.3.0'
+version = sshpt.__version__
 
-setup(name = 'sshpt',
-    license = 'GPLv3',
+setup(
+    name = 'sshpt',
+    license = sshpt.__license__,
     version = version,
+    author = "{},{}".format(sshpt.__author__, sshpt.__second_author__),
+    author_email = 'YouKnowWho@YouKnowWhat.com',
+    url = 'http://code.google.com/p/sshpt/',
     description = 'SSH Power Tool - Run commands and copy files to multiple servers simultaneously WITHOUT requiring pre-shared authentication keys',
-    scripts = ['sshpt.py'],
-    py_modules = ['sshpt'],
+    long_description = open('README.txt').read(),
+    scripts = ['sshpt/sshpt.py'],
+    packages= ['sshpt', 'sshpt.test'],
+    entry_points = {
+        'console_scripts':
+            ['sshpt=sshpt.sshpt:main']
+    },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: GNU General Public License (GPL)",
@@ -21,13 +32,7 @@ setup(name = 'sshpt',
         "Topic :: System :: Systems Administration",
     ], # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
     keywords='ssh administration parallel',
-    author = 'Dan McDougall',
-    author_email = 'YouKnowWho@YouKnowWhat.com',
-    url = 'http://code.google.com/p/sshpt/',
-    packages=find_packages(
-        exclude=['ez_setup', 'examples', 'tests']
-    ),
     install_requires=[
-    "paramiko>=1.7.0",
+        "paramiko>=1.15.0",
     ],
 )
