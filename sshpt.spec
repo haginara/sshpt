@@ -10,7 +10,7 @@ pyz = PYZ(a.pure)
 for d in a.datas:
   if 'pyconfig' in d[0]:
     a.datas.remove(d)
-    break 
+    break
 exe = EXE(pyz,
           a.scripts,
           a.binaries,
@@ -20,8 +20,8 @@ exe = EXE(pyz,
           debug=False,
           strip=None,
           upx=True,
-          console=True,
-          icon='icon/sshpt.ico',)
+          console=True,)
+          #icon='icon/sshpt.ico',)
 
 app = BUNDLE(exe,
             name=os.path.join('dist', 'sshpt.exe.app'))

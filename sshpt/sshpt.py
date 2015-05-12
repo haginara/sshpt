@@ -172,9 +172,9 @@ def option_parse(options):
         print "Error: --file, --stdin and --host-auth-file are mutually exclusive.  Exactly one must be provided."
         return 2
 
-    if options.hostfile:
-        print "Error: --file and --host-auth-file are mutually exclusive.  Exactly one must be provided."
-        return 2
+    #if options.hostfile:
+    #    print "Error: --file and --host-auth-file are mutually exclusive.  Exactly one must be provided."
+    #    return 2
 
     if options.hostfile and options.stdin:
         print "Error: --file and --stdin are mutually exclusive.  Exactly one must be provided."
@@ -241,6 +241,7 @@ def main():
 
     elif options.stdin:
         # if stdin wasn't piped in, prompt the user for it now
+        from platfrom import system
         if not select.select([sys.stdin,],[],[],0.0)[0]:
             sys.stdout.write("Enter list of hosts (one entry per line). ")
             sys.stdout.write("Ctrl-D to end input.\n")
@@ -255,11 +256,14 @@ def main():
     # Get the username and password to use when checking hosts
     if sshpt.username == None:
         sshpt.username = raw_input('Username: ')
-    if sshpt.password == None:
+    if sshpt.keyfile:
+        if sshpt.keypass == None:
+            sshpt.keypass = getpass.getpass('Passphrase: ')
+    elif sshpt.password == None:
         sshpt.password = getpass.getpass('Password: ')
-    if sshpt.password == '':
-        print '\nPleas type the password'
-        return 2
+        if sshpt.password == '':
+            print '\nPleas type the password'
+            return 2
 
     hostlist_list = []
     try: # This wierd little sequence of loops allows us to hit control-C in the middle of program execution and get immediate results

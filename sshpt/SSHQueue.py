@@ -3,6 +3,7 @@ from Generic import GenericThread, normalizeString
 import sys, os
 import threading, Queue
 import getpass
+import logging
 
 ## Deprecated
 #from optparse import OptionParser
@@ -14,6 +15,8 @@ except ImportError:
     print("ERROR: The Paramiko module required to use sshpt.")
     print("Download it here: http://www.lag.net/paramiko/")
     sys.exit(1)
+
+paramiko.util.log_to_file("debug.log")
 
 class SSHThread(GenericThread):
     """Connects to a host and optionally runs commands or copies a file over SFTP.
@@ -103,7 +106,6 @@ class SSHThread(GenericThread):
             key = paramiko.RSAKey.from_private_key_file(key_file, password=key_passwd)
         except Exception, detail:
             print("Error: Create_key: ".format(detail))
-
         return key
 
     def paramikoConnect(self, host, username, password, timeout, port=22, key_file="", key_pass=""):
@@ -112,11 +114,11 @@ class SSHThread(GenericThread):
         #paramiko.util.log_to_file('paramiko.log')
         key = None
         ssh = paramiko.SSHClient()
+        print 'common:{}@{}:{}'.format(username, host, port)
         if key_file:
-            print 'KEY FILE', key_file
-            print 'KEY Pass', key_pass
-            key = self.create_key(key_file, key_pass)
             try:
+                print 'KEY: {},{}'.format(key_file, key_pass)
+                key = self.create_key(key_file, key_pass)
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(host, port=port, username=username, timeout=timeout, pkey=key)
             except paramiko.SSHException, detail:
@@ -124,16 +126,20 @@ class SSHThread(GenericThread):
                 ssh = str(detail)
             except Exception, detail:
                 # Connecting failed (for whatever reason)
+                print sys.exc_info()
                 print('Connecting failed (for whatever reason)')
                 ssh = str(detail)
         else:
             try:
-                ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                print("paramikoConnect:connect, {}".format(username))
+                #print("paramikoConnect:connect, {}:{}".format(username, host))
                 ssh.connect(host, port=port, username=username, password=password, timeout=timeout)
+            except paramiko.SSHException, detail:
+                print 'Bad password?'
+                ssh = str(detail)
             except Exception, detail:
                 # Connecting failed (for whatever reason)
+                print('Connecting failed (for whatever reason)')
                 ssh = str(detail)
         return ssh
 
@@ -164,6 +170,8 @@ class SSHThread(GenericThread):
             stdin, stdout, stderr = transport.exec_command(command)
         command_output = stdout.readlines()
         command_output = "".join(command_output)
+
+        print command_output
 
         return command_output
 
