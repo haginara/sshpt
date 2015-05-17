@@ -16,7 +16,7 @@ except ImportError:
     print("Download it here: http://www.lag.net/paramiko/")
     sys.exit(1)
 
-paramiko.util.log_to_file("debug.log")
+#paramiko.util.log_to_file("debug.log")
 
 class SSHThread(GenericThread):
     """Connects to a host and optionally runs commands or copies a file over SFTP.

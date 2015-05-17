@@ -288,8 +288,5 @@ def main():
         stopOutputThread()
     return return_code
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
-else:
-    # This will be executed if sshpt was imported as a module
-    pass # Nothing yet
