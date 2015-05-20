@@ -1,2 +1,2 @@
 paramiko
-pycryptodome
+pycrypt

@@ -152,7 +152,7 @@ def create_argument():
     parser.add_argument("-t", "--timeout", dest="timeout", default=30, help="Timeout (in seconds) before giving up on an SSH connection (default: 30)", metavar="<seconds>")
     parser.add_argument("-s", "--sudo", action="store_true", dest="sudo", default=False, help="Use sudo to execute the command (default: as root).")
     parser.add_argument("-U", "--sudouser", dest="run_as", default="root", help="Run the command (via sudo) as this user.", metavar="<username>")
-    parser.add_argument('commands', metavar='C', type=str, nargs='+', help='an integer for the accumulator')
+    parser.add_argument('commands', metavar='C', type=str, nargs='+', help='Commands')
 
     return parser.parse_args()
 
@@ -288,8 +288,5 @@ def main():
         stopOutputThread()
     return return_code
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
-else:
-    # This will be executed if sshpt was imported as a module
-    pass # Nothing yet

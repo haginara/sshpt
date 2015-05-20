@@ -29,12 +29,13 @@ setup(
         "Programming Language :: Python :: 2.5",
         "Topic :: System :: Systems Administration",
     ], # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
-    packages = find_packages(),
+    packages = find_packages(exclude=EXCLUDE_FROM_PACKAGES),
     #package_dir =  {'sshpt': 'sshpt'},
+    #scripts = ['sshpt/sshpt.py'],
     entry_points = {
         'console_scripts': [
-            'sshpt=sshpt.sshpt:main'
-        ]
+            'sshpt = sshpt:main',
+        ],
     },
     install_requires=[
         "paramiko>=1.15.0",
