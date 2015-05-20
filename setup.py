@@ -9,7 +9,6 @@ import sys, os
 version = sshpt.__version__
 
 EXCLUDE_FROM_PACKAGES=[ 'test' ]
-print  find_packages()
 
 setup(
     name = 'sshpt',
