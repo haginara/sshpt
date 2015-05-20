@@ -16,7 +16,7 @@ setup(
     version = version,
     author = "{},{}".format(sshpt.__author__, sshpt.__second_author__),
     author_email = 'haginara@gmail.com',
-    url = 'https://github.com/haginara/sshpt'
+    url = 'https://github.com/haginara/sshpt',
     description = 'SSH Power Tool - Run commands and copy files to multiple servers simultaneously WITHOUT requiring pre-shared authentication keys',
     long_description = open('README.txt').read(),
     keywords='ssh administration parallel',
