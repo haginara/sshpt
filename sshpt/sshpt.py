@@ -241,7 +241,7 @@ def main():
 
     elif options.stdin:
         # if stdin wasn't piped in, prompt the user for it now
-        from platfrom import system
+        from platform import system
         if not select.select([sys.stdin,],[],[],0.0)[0]:
             sys.stdout.write("Enter list of hosts (one entry per line). ")
             sys.stdout.write("Ctrl-D to end input.\n")
