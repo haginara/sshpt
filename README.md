@@ -1,8 +1,11 @@
 sshpt -- SSH Power Tool
 =======================
 
+Dan Mcdougall wrote sshpt(SSH Power Tool) and maintained it.
+
+This repo is a fork of sshpt 1.2.0
+
 Copyright (C) 2011 Dan McDougall.
----------------------------------
 
 This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License (GPL) version 3 as published by the Free Software Foundation.
 
