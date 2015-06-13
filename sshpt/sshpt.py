@@ -128,38 +128,10 @@ class SSHPowerTool:
         return True
 
 
-def create_argument():
-    usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
-    parser = ArgumentParser(usage=usage, version=__version__)
-    #parser.disable_interspersed_args()
-    parser.add_argument("-f", "--file", dest="hostfile", default=None, help="Location of the file containing the host list.", metavar="<file>")
-    parser.add_argument("-S", "--stdin", dest="stdin", default=False, action="store_true", help="Read hosts from standard input")
-    #parser.add_argument("-F", "--host-auth-file", dest="host_auth_file", default=None, help="Location of the file containing the host and credentials list.", metavar="<file>")
-    parser.add_argument("-k", "--key-file", dest="keyfile", default=None, help="Location of the private key file", metavar="<file>")
-    parser.add_argument("-K", "--key-pass", dest="keypass", default=None, help="The password to be used when use the private key file).", metavar="<password>")
-    parser.add_argument("-o", "--outfile", dest="outfile", default=None, help="Location of the file where the results will be saved.", metavar="<file>")
-    parser.add_argument("-a", "--authfile", dest="authfile", default=None, help='Location of the file containing the credentials to be used for connections (format is "username:password").', metavar="<file>")
-    parser.add_argument("-T", "--threads", dest="max_threads", type=int, default=10, help="Number of threads to spawn for simultaneous connection attempts [default: 10].", metavar="<int>")
-    parser.add_argument("-P", "--port", dest="port", type=int, default=22, help="The port to be used when connecting.  Defaults to 22.", metavar="<port>")
-    parser.add_argument("-u", "--username", dest="username", default='root', help="The username to be used when connecting.  Defaults to the currently logged-in user.", metavar="<username>")
-    parser.add_argument("-p", "--password", dest="password", default=None, help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).", metavar="<password>")
-    parser.add_argument("-q", "--quiet", action="store_false", dest="verbose", default=True, help="Don't print status messages to stdout (only print errors).")
-    parser.add_argument("-c", "--copy-file", dest="copy_file", default=None, help="Location of the file to copy to and optionally execute (-x) on hosts.", metavar="<file>")
-    parser.add_argument("-d", "--dest", dest="destination", default="/tmp/", help="Path where the file should be copied on the remote host (default: /tmp/).", metavar="<path>")
-    parser.add_argument("-x", "--execute", action="store_true", dest="execute", default=False, help="Execute the copied file (just like executing a given command).")
-    parser.add_argument("-r", "--remove", action="store_true", dest="remove", default=False, help="Remove (clean up) the SFTP'd file after execution.")
-    parser.add_argument("-t", "--timeout", dest="timeout", default=30, help="Timeout (in seconds) before giving up on an SSH connection (default: 30)", metavar="<seconds>")
-    parser.add_argument("-s", "--sudo", action="store_true", dest="sudo", default=False, help="Use sudo to execute the command (default: as root).")
-    parser.add_argument("-U", "--sudouser", dest="run_as", default="root", help="Run the command (via sudo) as this user.", metavar="<username>")
-    parser.add_argument('commands', metavar='C', type=str, nargs='+', help='Commands')
-
-    return parser.parse_args()
-
 def option_parse(options):
     if not ( options.hostfile or options.stdin ):
         print "\nError:  At a minimum you must supply an input hostfile (-f) or pipe in the hostlist (--stdin)."
-        parser.print_help()
-        return 2
+        return 1
 
     if options.hostfile == None and not options.stdin :
         print "Error: You must supply a file (-f <file>, -F <file>) containing the host list to check "
@@ -189,24 +161,54 @@ def option_parse(options):
         return 2
 
     #if local_filepath is not None and commands is not False:
-    if options.copy_file is not None and commands is not False:
+    if options.copy_file is not None and options.commands is not False:
         print "Error: You can either run commands or execute a file.  Not both."
         return 2
 
-    commands = False
-    ## Assume anything passed to us beyond the command line switches are commands to be executed
-    if len(options.commands) > 0:
-        commands = options.commands
+    return 0
 
-    return commands
+
+def create_argument():
+    usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
+    parser = ArgumentParser(usage=usage, version=__version__)
+    #parser.disable_interspersed_args()
+    parser.add_argument("-f", "--file", dest="hostfile", default=None, help="Location of the file containing the host list.", metavar="<file>")
+    parser.add_argument("-S", "--stdin", dest="stdin", default=False, action="store_true", help="Read hosts from standard input")
+    #parser.add_argument("-F", "--host-auth-file", dest="host_auth_file", default=None, help="Location of the file containing the host and credentials list.", metavar="<file>")
+    parser.add_argument("-k", "--key-file", dest="keyfile", default=None, help="Location of the private key file", metavar="<file>")
+    parser.add_argument("-K", "--key-pass", dest="keypass", default=None, help="The password to be used when use the private key file).", metavar="<password>")
+    parser.add_argument("-o", "--outfile", dest="outfile", default=None, help="Location of the file where the results will be saved.", metavar="<file>")
+    parser.add_argument("-a", "--authfile", dest="authfile", default=None, help='Location of the file containing the credentials to be used for connections (format is "username:password").', metavar="<file>")
+    parser.add_argument("-T", "--threads", dest="max_threads", type=int, default=10, help="Number of threads to spawn for simultaneous connection attempts [default: 10].", metavar="<int>")
+    parser.add_argument("-P", "--port", dest="port", type=int, default=22, help="The port to be used when connecting.  Defaults to 22.", metavar="<port>")
+    parser.add_argument("-u", "--username", dest="username", default='root', help="The username to be used when connecting.  Defaults to the currently logged-in user.", metavar="<username>")
+    parser.add_argument("-p", "--password", dest="password", default=None, help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).", metavar="<password>")
+    parser.add_argument("-q", "--quiet", action="store_false", dest="verbose", default=True, help="Don't print status messages to stdout (only print errors).")
+    parser.add_argument("-c", "--copy-file", dest="copy_file", default=None, help="Location of the file to copy to and optionally execute (-x) on hosts.", metavar="<file>")
+    parser.add_argument("-d", "--dest", dest="destination", default="/tmp/", help="Path where the file should be copied on the remote host (default: /tmp/).", metavar="<path>")
+    parser.add_argument("-x", "--execute", action="store_true", dest="execute", default=False, help="Execute the copied file (just like executing a given command).")
+    parser.add_argument("-r", "--remove", action="store_true", dest="remove", default=False, help="Remove (clean up) the SFTP'd file after execution.")
+    parser.add_argument("-t", "--timeout", dest="timeout", default=30, help="Timeout (in seconds) before giving up on an SSH connection (default: 30)", metavar="<seconds>")
+    parser.add_argument("-s", "--sudo", action="store_true", dest="sudo", default=False, help="Use sudo to execute the command (default: as root).")
+    parser.add_argument("-U", "--sudouser", dest="run_as", default="root", help="Run the command (via sudo) as this user.", metavar="<username>")
+    parser.add_argument('commands', metavar='C', type=str, nargs='*', help='Commands', default=False)
+
+    options = parser.parse_args()
+
+    return options
+
+
 
 def main():
     """Main program function:  Grabs command-line arguments, starts up threads, and runs the program.
     """
     # Grab command line arguments and the command to run (if any)
-    sshpt = SSHPowerTool()
     options = create_argument()
-    sshpt.commands = option_parse(options)
+    if 0 != option_parse(options):
+        return 2
+
+    sshpt = SSHPowerTool()
+    sshpt.commands = options.commands
 
     # Check to make sure we were passed at least one command line argument
     return_code = 0

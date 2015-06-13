@@ -134,10 +134,9 @@ class SSHThread(GenericThread):
         #paramiko.util.log_to_file('paramiko.log')
         key = None
         ssh = paramiko.SSHClient()
-        print 'common:{}@{}:{}'.format(username, host, port)
         if key_file:
             try:
-                print 'KEY: {},{}'.format(key_file, key_pass)
+                #print 'KEY: {},{}'.format(key_file, key_pass)
                 key = self.create_key(key_file, key_pass)
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(host, port=port, username=username, timeout=timeout, pkey=key)
@@ -190,8 +189,6 @@ class SSHThread(GenericThread):
             stdin, stdout, stderr = transport.exec_command(command)
         command_output = stdout.readlines()
         command_output = "".join(command_output)
-
-        print command_output
 
         return command_output
 
