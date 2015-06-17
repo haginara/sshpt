@@ -35,7 +35,7 @@ This program is meant for situations where shared keys are not an option.  If al
 
 # Meta
 __license__ = "GNU General Public License (GPL) Version 3"
-__version_info__ = (1, 3, 4)
+__version_info__ = (1, 3, 5)
 __version__ = "%d.%d.%d"%__version_info__
 __author__ = 'Dan McDougall <YouKnowWho@YouKnowWhat.com>'
 __second_author__ = 'Jonghak Choi <haginara@gmail.com>'
