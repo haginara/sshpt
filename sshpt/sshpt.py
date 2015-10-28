@@ -270,7 +270,8 @@ def main():
     try: # This wierd little sequence of loops allows us to hit control-C in the middle of program execution and get immediate results
         for host in hostlist.split("\n"): # Turn the hostlist into an actual list
             if host != "":
-                hostlist_list.append(host)
+		if not host.startswith('#'):
+                    hostlist_list.append(host)
         output_queue = sshpt(hostlist_list)
         output_queue.join() # Just to be safe we wait for the OutputThread to finish before moving on
     except KeyboardInterrupt:
