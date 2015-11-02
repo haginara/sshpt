@@ -35,77 +35,105 @@ This program is meant for situations where shared keys are not an option.  If al
 
 # Meta
 __license__ = "GNU General Public License (GPL) Version 3"
-__version_info__ = (1, 3, 5)
-__version__ = "%d.%d.%d"%__version_info__
+__version_info__ = (1, 3, 6)
+__version__ = ".".join(map(str, __version_info__))
 __author__ = 'Dan McDougall <YouKnowWho@YouKnowWhat.com>'
 __second_author__ = 'Jonghak Choi <haginara@gmail.com>'
 
 # Import built-in Python modules
-import sys, os
+import sys
 import getpass
-import datetime
 import select
 from argparse import ArgumentParser
 from time import sleep
+import logging
 
 # Import Internal
-from OutputThread import OutputThread, startOutputThread, stopOutputThread
-from SSHQueue import SSHThread, startSSHQueue, stopSSHQueue
+from OutputThread import startOutputThread, stopOutputThread
+from SSHQueue import startSSHQueue, stopSSHQueue
+
+logging.getLogger("sshpt")
+
+
+def _parse_hostfile(host):
+    keys = ['host', 'username', 'password']
+    values = host.split(":")
+    h = {}
+    for i, value in enumerate(values):
+        h[keys[i]] = values[i]
+
+    return h
+
+
+def _normalize_hosts(hosts):
+    if hosts is None:
+        return []
+
+    if isinstance(hosts, str):
+        hosts = [host for host in hosts.splitlines()]
+
+    return [_parse_hostfile(host) if ':' in host else {'host': host} for host in hosts]
+
 
 class SSHPowerTool:
-    def __init__(self):
+    def __init__(self, hosts=None, **kwargs):
+        self.hosts = _normalize_hosts(hosts)
         self.username = ""
         self.password = ""
         self.keyfile = ""
         self.keypass = ""
-        self.max_threads=10 # Maximum number of simultaneous connection attempts
-        self.timeout=30 # Connection timeout
-        self.commands=False # List - Commands to execute on hosts (if False nothing will be executed)
-        self.local_filepath=False # Local path of the file to SFTP
-        self.remote_filepath="/tmp/" # Destination path where the file should end up on the host
-        self.execute=False # Whether or not the SFTP'd file should be executed after it is uploaded
-        self.remove=False # Whether or not the SFTP'd file should be removed after execution
-        self.sudo=False # Whether or not sudo should be used for commands and file operations
-        self.run_as='root' # User to become when using sudo
-        self.verbose=True # Whether or not we should output connection results to stdout
-        self.outfile=None # Path to the file where we want to store connection results
-        self.output_queue=None # Queue.Queue() where connection results should be put().  If none is given it will use the OutputThread default (output_queue)
-        self.port=22 # Port to use when connecting
-
+        self.max_threads = 10# Maximum number of simultaneous connection attempts
+        self.timeout = 30# Connection timeout
+        self.commands = False# List - Commands to execute on hosts (if False nothing will be executed)
+        self.local_filepath = False# Local path of the file to SFTP
+        self.remote_filepath = "/tmp/"# Destination path where the file should end up on the host
+        self.execute = False# Whether or not the SFTP'd file should be executed after it is uploaded
+        self.remove = False# Whether or not the SFTP'd file should be removed after execution
+        self.sudo = False# Whether or not sudo should be used for commands and file operations
+        self.run_as = 'root'# User to become when using sudo
+        self.verbose = True# Whether or not we should output connection results to stdout
+        self.outfile = None# Path to the file where we want to store connection results
+        self.output_queue = None# Queue.Queue() where connection results should be put().  If none is given it will use the OutputThread default (output_queue)
+        self.port = 22# Port to use when connecting
         self.ssh_connect_queue = None
 
-    def __call__(self, hostlist):
-        return self.run(hostlist)
+        self.__dict__.update(**kwargs)
 
-    def run(self, hostlist):
+    def __call__(self):
+        return self.run()
+
+    def run(self):
         if self.output_queue is None:
             self.output_queue = startOutputThread(self.verbose, self.outfile)
         # Start up the Output and SSH threads
         self.ssh_connect_queue = startSSHQueue(self.output_queue, self.max_threads)
 
-        if not self.commands and not self.local_filepath: # Assume we're just doing a connection test
-            self.commands = ['echo CONNECTION TEST',]
+        if not self.commands and not self.local_filepath:
+            # Assume we're just doing a connection test
+            self.commands = ['echo CONNECTION TEST', ]
 
-        while len(hostlist) != 0: # Only add items to the ssh_connect_queue if there are available threads to take them.
-            for host in hostlist:
+        if self.hosts:
+            for host in self.hosts:
                 if self.ssh_connect_queue.qsize() <= self.max_threads:
-                    if self.username == "" and self.password == "":
-                        host_info = host[0].split(':')
-                        if len(host_info) == 1:
-                            self.queueSSHConnection(host_info[0], host[1], host[2], self.keyfile, self.keypass, self.timeout, self.commands, self.local_filepath, self.remote_filepath, self.execute, self.remove, self.sudo, self.run_as, self.port)
-                            hostlist.remove(host)
-                        elif len(host_info) == 2:
-                            self.queueSSHConnection(host_info[0], host[1], host[2], self.keyfile, self.keypass, self.timeout, self.commands, self.local_filepath, self.remote_filepath, self.execute, self.remove, self.sudo, self.run_as, host_info[1])
-                            hostlist.remove(host)
-                    else:
-                        self.queueSSHConnection(host, self.username, self.password, self.keyfile, self.keypass, self.timeout, self.commands, self.local_filepath, self.remote_filepath, self.execute, self.remove, self.sudo, self.run_as, self.port)
-                        hostlist.remove(host)
+                    if self.username:
+                        host['username'] = self.username
+                    if self.password:
+                        host['password'] = self.password
+                    self.queueSSHConnection(
+                        host['host'], host['username'], host['password'],
+                        self.keyfile, self.keypass, self.timeout,
+                        self.commands, self.local_filepath, self.remote_filepath,
+                        self.execute, self.remove, self.sudo, self.run_as, self.port)
             sleep(1)
-        self.ssh_connect_queue.join() # Wait until all jobs are done before exiting
+        # Wait until all jobs are done before exiting
+        self.ssh_connect_queue.join()
 
         return self.output_queue
 
-    def queueSSHConnection(self, host, username, password, keyfile, keypass, timeout, commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port):
+    def queueSSHConnection(self,
+        host, username, password, keyfile, keypass, timeout,
+        commands, local_filepath, remote_filepath,
+        execute, remove, sudo, run_as, port):
         """Add files to the SSH Queue (ssh_connect_queue)"""
         queueObj = {}
         queueObj['host'] = host
@@ -198,7 +226,6 @@ def create_argument():
     return options
 
 
-
 def main():
     """Main program function:  Grabs command-line arguments, starts up threads, and runs the program.
     """
@@ -243,7 +270,7 @@ def main():
     elif options.stdin:
         # if stdin wasn't piped in, prompt the user for it now
         from platform import system
-        if not select.select([sys.stdin,],[],[],0.0)[0]:
+        if not select.select([sys.stdin, ], [], [], 0.0)[0]:
             sys.stdout.write("Enter list of hosts (one entry per line). ")
             sys.stdout.write("Ctrl-D to end input.\n")
         # in either case, read data from stdin
@@ -255,12 +282,12 @@ def main():
         password = password.rstrip('\n') # Get rid of trailing newline
 
     # Get the username and password to use when checking hosts
-    if sshpt.username == None:
+    if sshpt.username is None:
         sshpt.username = raw_input('Username: ')
     if sshpt.keyfile:
-        if sshpt.keypass == None:
+        if sshpt.keypass is None:
             sshpt.keypass = getpass.getpass('Passphrase: ')
-    elif sshpt.password == None:
+    elif sshpt.password is None:
         sshpt.password = getpass.getpass('Password: ')
         if sshpt.password == '':
             print '\nPleas type the password'
@@ -270,7 +297,7 @@ def main():
     try: # This wierd little sequence of loops allows us to hit control-C in the middle of program execution and get immediate results
         for host in hostlist.split("\n"): # Turn the hostlist into an actual list
             if host != "":
-		if not host.startswith('#'):
+                if not host.startswith('#'):
                     hostlist_list.append(host)
         output_queue = sshpt(hostlist_list)
         output_queue.join() # Just to be safe we wait for the OutputThread to finish before moving on

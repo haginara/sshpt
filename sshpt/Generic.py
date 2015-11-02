@@ -20,7 +20,7 @@
 
 import re
 import threading
-import logging
+
 
 ### ---- Private Functions ----
 def normalizeString(string):
@@ -29,7 +29,6 @@ def normalizeString(string):
     string = string.strip() # Remove leading/trailing whitespace/blank lines
     srting = re.sub(r'(")', '""', string) # Convert double quotes to double double quotes (e.g. 'foo "bar" blah' becomes 'foo ""bar"" blah')
     return string
-
 
 
 class GenericThread(threading.Thread):

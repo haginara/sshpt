@@ -16,13 +16,16 @@ hostlist = raw_input('Host(s) (use spaces for multiple): ').split(' ')
 username = raw_input('Username: ')
 password = getpass.getpass('Password: ')
 command = raw_input('Command: ')
-commands = [command,] # 'commands' has to be a list
+commands = [command, ]# 'commands' has to be a list
 
 
 # Give ourselves an output queue to store results
 results_queue = Queue.Queue()
 
-sshpt.sshpt(hostlist, username, password, commands=commands, output_queue=results_queue)
+ssh = sshpt.SSHPowerTool(
+    hosts=hostlist, username=username, password=password,
+    commands=commands,output_queue=results_queue)
+ssh.run()
 
 # This is the simplest way of grabbing the data that sshpt returns.  The other way would be to write your own version of the OutputThread
 for host in results_queue.queue:
