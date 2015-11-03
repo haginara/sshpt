@@ -24,7 +24,6 @@
 # TODO:  Add stderr handling
 # TODO:  Add ability to specify the ownership and permissions of uploaded files (when sudo is used)
 # TODO:  Add logging using the standard module
-# TODO:  Add the ability to specify a host list on the command line.  Something like '--hosts="host1:host2:host3"'
 
 # Docstring:
 """
