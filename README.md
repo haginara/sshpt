@@ -43,7 +43,8 @@ Version
 
 ## 1.3.7
  - Fixed the bugs on test codes
- - Supports the comments on hostfile using '#' 
+ - Supports the comments on hostfile using '#'
+ - Added the --hosts option to specify a host list on the command line
 
 
 Usage
