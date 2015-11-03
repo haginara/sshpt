@@ -157,11 +157,11 @@ class SSHPowerTool:
 
 
 def option_parse(options):
-    if not ( options.hostfile or options.stdin ):
+    if not (options.hostfile or options.stdin):
         print "\nError:  At a minimum you must supply an input hostfile (-f) or pipe in the hostlist (--stdin)."
         return 1
 
-    if options.hostfile == None and not options.stdin :
+    if options.hostfile is None and not options.stdin :
         print "Error: You must supply a file (-f <file>, -F <file>) containing the host list to check "
         print "or use the --stdin option to provide them via standard input"
         print "Use the -h option to see usage information."
@@ -269,7 +269,6 @@ def main():
 
     elif options.stdin:
         # if stdin wasn't piped in, prompt the user for it now
-        from platform import system
         if not select.select([sys.stdin, ], [], [], 0.0)[0]:
             sys.stdout.write("Enter list of hosts (one entry per line). ")
             sys.stdout.write("Ctrl-D to end input.\n")
@@ -279,7 +278,8 @@ def main():
     if options.authfile is not None:
         credentials = open(options.authfile).readline()
         username, password = credentials.split(":")
-        password = password.rstrip('\n') # Get rid of trailing newline
+        # Get rid of trailing newline
+        password = password.rstrip('\n')
 
     # Get the username and password to use when checking hosts
     if sshpt.username is None:
@@ -294,16 +294,21 @@ def main():
             return 2
 
     hostlist_list = []
-    try: # This wierd little sequence of loops allows us to hit control-C in the middle of program execution and get immediate results
-        for host in hostlist.split("\n"): # Turn the hostlist into an actual list
+    try:
+        # This wierd little sequence of loops allows us to hit control-C
+        # in the middle of program execution and get immediate results
+        for host in hostlist.split("\n"):
+            # Turn the hostlist into an actual list
             if host != "":
                 if not host.startswith('#'):
                     hostlist_list.append(host)
         output_queue = sshpt(hostlist_list)
-        output_queue.join() # Just to be safe we wait for the OutputThread to finish before moving on
+        # Just to be safe we wait for the OutputThread to finish before moving on
+        output_queue.join()
     except KeyboardInterrupt:
         print 'caught KeyboardInterrupt, exiting...'
-        return_code = 1 # Return code should be 1 if the user issues a SIGINT (control-C)
+        # Return code should be 1 if the user issues a SIGINT (control-C)
+        return_code = 1
         # Clean up
         stopSSHQueue()
         stopOutputThread()

@@ -17,5 +17,7 @@
 #       along with this program; if not, the license can be downloaded here:
 #
 #       http://www.gnu.org/licenses/gpl.html
+from __future__ import absolute_import
+import sys
 
-from sshpt import *
+from .sshpt import SSHPowerTool, main
