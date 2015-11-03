@@ -38,6 +38,14 @@ If you want to use sshpt as a module in your Python program a setup.py has been 
 sudo python setup.py install
 ```
 
+Version
+-------
+
+## 1.3.7
+ - Fixed the bugs on test codes
+ - Supports the comments on hostfile using '#' 
+
+
 Usage
 -----
 
@@ -45,7 +53,7 @@ Usage
 usage: usage: sshpt [options] "[command1]" "[command2]" ...
 
 positional arguments:
-	C                     Commands
+    C                     Commands
 
 optional arguments:
   -h, --help            show this help message and exit
