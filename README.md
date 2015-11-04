@@ -1,6 +1,8 @@
 sshpt -- SSH Power Tool
 =======================
 
+[![Build Status](https://travis-ci.org/haginara/sshpt.svg?branch=1.3.7)](https://travis-ci.org/haginara/sshpt)
+
 Dan Mcdougall wrote sshpt(SSH Power Tool) and maintained it.
 
 This repo is a fork of sshpt 1.2.0
@@ -38,6 +40,19 @@ If you want to use sshpt as a module in your Python program a setup.py has been 
 sudo python setup.py install
 ```
 
+Version
+-------
+
+## 1.3.7
+### bug fix
+ - Fixed the bugs on test codes
+ - Fixed the when use the keyfile to log in
+ 
+### Enhanced features
+ - Supports the comments on hostfile using '#'
+ - Added the --hosts option to specify a host list on the command line
+
+
 Usage
 -----
 
@@ -45,7 +60,7 @@ Usage
 usage: usage: sshpt [options] "[command1]" "[command2]" ...
 
 positional arguments:
-	C                     Commands
+    C                     Commands
 
 optional arguments:
   -h, --help            show this help message and exit

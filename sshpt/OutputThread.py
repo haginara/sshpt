@@ -24,13 +24,17 @@ import datetime
 import threading
 import Queue
 
-class OutputThread(GenericThread):
-    """ Genreric -> OutputThread
-        This thread is here to prevent SSHThreads from simultaneously writing to the same file and mucking it all up.  Essentially, it allows sshpt to write results to an outfile as they come in instead of all at once when the program is finished.  This also prevents a 'kill -9' from destroying report resuls and also lets you do a 'tail -f <outfile>' to watch results in real-time.
 
-        output_queue: Queue.Queue(): The queue to use for incoming messages.
-        verbose - Boolean: Whether or not we should output to stdout.
-        outfile - String: Path to the file where we'll store results.
+class OutputThread(GenericThread):
+    """
+    Genreric -> OutputThread
+    This thread is here to prevent SSHThreads from simultaneously writing to the same file and mucking it all up.
+    Essentially, it allows sshpt to write results to an outfile as they come in instead of all at once when the program is finished.
+    This also prevents a 'kill -9' from destroying report resuls and also lets you do a 'tail -f <outfile>' to watch results in real-time.
+
+    output_queue: Queue.Queue(): The queue to use for incoming messages.
+    verbose - Boolean: Whether or not we should output to stdout.
+    outfile - String: Path to the file where we'll store results.
     """
     def __init__(self, output_queue, verbose=True, outfile=None):
         """Name ourselves and assign the variables we were instanciated with."""
@@ -42,7 +46,7 @@ class OutputThread(GenericThread):
 
     def printToStdout(self, string):
         """Prints 'string' if self.verbose is set to True"""
-        if self.verbose == True:
+        if self.verbose is True:
             print string
 
     def writeOut(self, queueObj):
@@ -81,16 +85,22 @@ class OutputThread(GenericThread):
             self.writeOut(queueObj)
             self.output_queue.task_done()
 
+
 def startOutputThread(verbose, outfile):
-    """Starts up the OutputThread (which is used by SSHThreads to print/write out results)."""
+    """
+    Starts up the OutputThread (which is used by SSHThreads to print/write out results).
+    """
     output_queue = Queue.Queue()
     output_thread = OutputThread(output_queue, verbose, outfile)
     output_thread.setDaemon(True)
     output_thread.start()
     return output_queue
 
+
 def stopOutputThread():
-    """Shuts down the OutputThread"""
+    """
+    Shuts down the OutputThread
+    """
     for t in threading.enumerate():
         if t.getName().startswith('OutputThread'):
             t.quit()

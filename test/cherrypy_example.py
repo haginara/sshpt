@@ -3,15 +3,21 @@
 """
 SSHPT CherryPy Example - Demonstrates how to use sshpt with cherrypy to execute commands via a web page.
 """
-import cherrypy
+import sys
+try:
+    import cherrypy
+except ImportError:
+    print("Install cheryypy first")
+    sys.exit(2)
 import Queue
 import sshpt
+
 
 class SSHPTClass(object):
     """Setup a basic CherryPy web page where the user can select from a pre-defined list of servers to run commands on"""
     def __init__(self):
         """This example includes a pre-defined hostlist.  You could grab yours from a file/DB or just have the user enter them in by hand."""
-        self.hostlist = ['localhost', 'devserver', 'testserver', 'prodserver']
+        self.hostlist = ['10.8.248.25', '10.8.248.19', '10.8.248.7', '10.8.248.21']
 
     def index(self):
         """The index page - The user selects the hosts to run commands on, enters their credentials, and provides a command to run."""
@@ -39,8 +45,11 @@ class SSHPTClass(object):
         """The results page"""
         # Give ourselves an output queue to save results into
         results_queue = Queue.Queue()
-        commands = [command,] # Has to be a list
-        sshpt.sshpt(hostlist=hosts, username=username, password=password, commands=commands, output_queue=results_queue)
+        commands = [command, ] # Has to be a list
+        ssh = sshpt.SSHPowerTool(
+            hosts=hosts, username=username, password=password,
+            commands=commands, output_queue=results_queue)
+        ssh.run()
         page = "<html><head><title>SSHPT Via Web Example</title></head><body>"
         # Print a table header
         page += "<table border='1'><tr><td><b>Host</b></td><td><b>Command</b></td><td><b>Command Output</b></td></tr>"
