@@ -40,7 +40,7 @@ Using pip:
 
 ```bash
 pip install sshpt
-'''
+```
 
 Using Codes:
 
