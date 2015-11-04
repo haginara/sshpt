@@ -1,6 +1,8 @@
 sshpt -- SSH Power Tool
 =======================
 
+[![Build Status](https://travis-ci.org/haginara/sshpt.svg?branch=1.3.7)](https://travis-ci.org/haginara/sshpt)
+
 Dan Mcdougall wrote sshpt(SSH Power Tool) and maintained it.
 
 This repo is a fork of sshpt 1.2.0
