@@ -34,11 +34,21 @@ pycrypto - Python Cryptography Toolkit
 URL: http://www.amk.ca/python/code/crypto.html
 ```
 
-If you want to use sshpt as a module in your Python program a setup.py has been provided:
+Installation
+------------
+Using pip:
+
+```bash
+pip install sshpt
+'''
+
+Using Codes:
 
 ```bash
 sudo python setup.py install
 ```
+
+
 
 Version
 -------
