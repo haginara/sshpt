@@ -19,7 +19,6 @@
 #       http://www.gnu.org/licenses/gpl.html
 
 # TODO:  Add the ability to have host-specific usernames/passwords in the hostlist file
-# TODO:  Add the ability to log in within private key( without password )
 # TODO:  Add the ability to pass command line arguments to uploaded/executed files
 # TODO:  Add stderr handling
 # TODO:  Add ability to specify the ownership and permissions of uploaded files (when sudo is used)
