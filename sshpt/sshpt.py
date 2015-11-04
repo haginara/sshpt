@@ -56,8 +56,8 @@ logger = logging.getLogger("sshpt")
 
 def _parse_hostfile(host):
     keys = ['host', 'username', 'password']
+    h = {'host': '', 'username': '', 'password': ''}
     values = host.split(":")
-    h = {}
     for i, value in enumerate(values):
         h[keys[i]] = values[i]
 
@@ -71,7 +71,8 @@ def _normalize_hosts(hosts):
     if isinstance(hosts, str):
         hosts = filter(lambda h: not h.startswith("#"), hosts.splitlines())
 
-    return [_parse_hostfile(host) if ':' in host else {'host': host} for host in hosts]
+    return [_parse_hostfile(host) if ':' in host else {
+        'host': host, 'username': '', 'password': ''} for host in hosts]
 
 
 class SSHPowerTool:
@@ -120,7 +121,8 @@ class SSHPowerTool:
                         host['password'] = self.password
                     self.queueSSHConnection(
                         host['host'], host['username'], host['password'],
-                        self.keyfile, self.keypass, self.timeout,
+                        self.keyfile, self.keypass,
+                        self.timeout,
                         self.commands, self.local_filepath, self.remote_filepath,
                         self.execute, self.remove, self.sudo, self.run_as, self.port)
                 sleep(1)
