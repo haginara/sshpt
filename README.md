@@ -42,7 +42,11 @@ Version
 -------
 
 ## 1.3.7
+### bug fix
  - Fixed the bugs on test codes
+ - Fixed the when use the keyfile to log in
+ 
+### Enhanced features
  - Supports the comments on hostfile using '#'
  - Added the --hosts option to specify a host list on the command line
 
