@@ -260,6 +260,7 @@ class SSHThread(GenericThread):
                 command_output = detail
                 ssh.close()
             return connection_result, command_output
+        return "Host name is not correct", command_output
 
 def startSSHQueue(output_queue, max_threads):
     """Setup concurrent threads for testing SSH connectivity.  Must be passed a Queue (output_queue) for writing results."""
