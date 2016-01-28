@@ -69,6 +69,7 @@ def _normalize_hosts(hosts):
 
     if isinstance(hosts, str):
         hosts = filter(lambda h: (not h.startswith("#") and h != ""), hosts.splitlines())
+        hosts = [host.strip() for host in hosts]
 
     return [_parse_hostfile(host) if ':' in host else {
         'host': host, 'username': '', 'password': ''} for host in hosts]
