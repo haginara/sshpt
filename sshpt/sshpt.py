@@ -47,8 +47,8 @@ from time import sleep
 import logging
 
 # Import Internal
-from OutputThread2 import startOutputThread, stopOutputThread
-from SSHQueue2 import startSSHQueue, stopSSHQueue
+from OutputThread import startOutputThread, stopOutputThread
+from SSHQueue import startSSHQueue, stopSSHQueue
 
 logger = logging.getLogger("sshpt")
 
@@ -99,8 +99,6 @@ class SSHPowerTool:
         self._params = {}
 
         self.__dict__.update(**kwargs)
-        
-        print(vars(self))
 
     def __call__(self):
         return self.run()

@@ -215,18 +215,25 @@ class SSHThread(GenericThread):
         if host != "":
             try:
                 ssh = self.paramikoConnect(host, username, password=password, timeout=timeout, port=port, key_file=keyfile, key_pass=keypass)
-                if isistance(ssh, type("")):
+                if isinstance(ssh, type("")):
                     # If ssh is a string that means the connection failed and 'ssh' is the details as to why
                     connection_result = False
                     command_output = ssh
                     return connection_result, command_output
+
                 command_output = []
                 if local_filepath:
                     remote_filepath = remote_filepath.rstrip('/')
                     local_short_filename = local_filepath.split("/")[-1] or "sshpt_temp"
                     remote_fullpath = "%s/%s" % (remote_filepath, local_short_filename)
                     try:
-                        self.sftpPut(ssh, local_filepath, remote_fullpath)
+                        if sudo:
+                            temp_path = "/tmp/%s" % local_short_filename
+                            self.sftpPut(ssh, local_filepath, temp_path)
+                            command_output.append(
+                                self.executeCommand(ssh, "mv %s %s" % (temp_path, remote_fullpath), sudo, run_as, password))
+                        else:
+                            self.sftpPut(ssh, local_filepath, remote_fullpath)
                     except IOError as details:
                         # i.e. permission denied
                         # Make sure the error is included in the command output
@@ -252,7 +259,6 @@ class SSHThread(GenericThread):
                     rm_command = "rm -f %s" % remote_fullpath
                     self.executeCommand(transport=ssh, command=rm_command, sudo=sudo, run_as=run_as, password=password)
 
-                ssh.close()
                 command_count = 0
                 for output in command_output:
                     # Clean up the command output
@@ -264,6 +270,7 @@ class SSHThread(GenericThread):
                 print "Exception: %s" % detail
                 connection_result = False
                 command_output = detail
+            finally:
                 ssh.close()
             return connection_result, command_output
         return "Host name is not correct", command_output
