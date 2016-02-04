@@ -33,7 +33,7 @@ This program is meant for situations where shared keys are not an option.  If al
 
 # Meta
 __license__ = "GNU General Public License (GPL) Version 3"
-__version_info__ = (1, 3, 7)
+__version_info__ = (1, 3, 8)
 __version__ = ".".join(map(str, __version_info__))
 __author__ = 'Dan McDougall <YouKnowWho@YouKnowWhat.com>'
 __second_author__ = 'Jonghak Choi <haginara@gmail.com>'
@@ -47,8 +47,8 @@ from time import sleep
 import logging
 
 # Import Internal
-from OutputThread import startOutputThread, stopOutputThread
-from SSHQueue import startSSHQueue, stopSSHQueue
+from OutputThread2 import startOutputThread, stopOutputThread
+from SSHQueue2 import startSSHQueue, stopSSHQueue
 
 logger = logging.getLogger("sshpt")
 
@@ -96,12 +96,20 @@ class SSHPowerTool:
         self.output_queue = None# Queue.Queue() where connection results should be put().  If none is given it will use the OutputThread default (output_queue)
         self.port = 22# Port to use when connecting
         self.ssh_connect_queue = None
+        self._params = {}
 
         self.__dict__.update(**kwargs)
+        
+        print(vars(self))
 
     def __call__(self):
         return self.run()
 
+    def params(self, **kwargs):
+        """
+        """
+        self._params.update(kwargs)
+        
     def run(self):
         if self.output_queue is None:
             self.output_queue = startOutputThread(self.verbose, self.outfile)
@@ -133,10 +141,8 @@ class SSHPowerTool:
 
         return self.output_queue
 
-    def queueSSHConnection(self,
-        host, username, password, keyfile, keypass, timeout,
-        commands, local_filepath, remote_filepath,
-        execute, remove, sudo, run_as, port):
+    def queueSSHConnection(self, host, username, password, keyfile, keypass, timeout,
+        commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port):
         """Add files to the SSH Queue (ssh_connect_queue)"""
         queueObj = {}
         queueObj['host'] = host

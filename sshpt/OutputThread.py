@@ -38,7 +38,7 @@ class OutputThread(GenericThread):
     """
     def __init__(self, output_queue, verbose=True, outfile=None):
         """Name ourselves and assign the variables we were instanciated with."""
-        threading.Thread.__init__(self, name="OutputThread")
+        super(OutputThread, self).__init__(name="OutputThread")
         self.output_queue = output_queue
         self.verbose = verbose
         self.outfile = outfile
@@ -54,18 +54,22 @@ class OutputThread(GenericThread):
         if queueObj['local_filepath']:
             queueObj['commands'] = "sshpt: sftp.put %s %s:%s" % (queueObj['local_filepath'], queueObj['host'], queueObj['remote_filepath'])
         elif queueObj['sudo'] is False:
-            if len(queueObj['commands']) > 1: # Only prepend 'index: ' if we were passed more than one command
+            if len(queueObj['commands']) > 1:
+                # Only prepend 'index: ' if we were passed more than one command
                 queueObj['commands'] = "\n".join(["%s: %s" % (index, command) for index, command in enumerate(queueObj['commands'])])
             else:
                 queueObj['commands'] = "".join(queueObj['commands'])
         else:
-            if len(queueObj['commands']) > 1: # Only prepend 'index: ' if we were passed more than one command
+            if len(queueObj['commands']) > 1:
+                # Only prepend 'index: ' if we were passed more than one command
                 queueObj['commands'] = "\n".join(["%s: sudo -u %s %s" % (index, queueObj['run_as'], command) for index, command in enumerate(queueObj['commands'])])
             else:
                 queueObj['commands'] = "sudo -u %s %s" % (queueObj['run_as'], "".join(queueObj['commands']))
         if isinstance(queueObj['command_output'], str):
-            pass # Since it is a string we'll assume it is already formatted properly
-        elif len(queueObj['command_output']) > 1: # Only prepend 'index: ' if we were passed more than one command
+            # Since it is a string we'll assume it is already formatted properly
+            pass
+        elif len(queueObj['command_output']) > 1:
+            # Only prepend 'index: ' if we were passed more than one command
             queueObj['command_output'] = "\n".join(["%s: %s" % (index, command) for index, command in enumerate(queueObj['command_output'])])
         else:
             queueObj['command_output'] = "\n".join(queueObj['command_output'])
