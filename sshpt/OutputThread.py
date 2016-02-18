@@ -20,7 +20,6 @@
 
 from Generic import GenericThread
 
-import csv
 import datetime
 import threading
 import Queue
