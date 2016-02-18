@@ -20,6 +20,7 @@
 
 from Generic import GenericThread
 
+import csv
 import datetime
 import threading
 import Queue
@@ -45,7 +46,13 @@ class OutputThread(GenericThread):
         self.quitting = False
 
     def printToStdout(self, string):
-        """Prints 'string' if self.verbose is set to True"""
+        """Prints 'string' if self.verbose is set to True
+        New output format:
+        ```$ sshpt -f server_ubuntu.txt -u jhchoi "du -h /opt/nsmon/log"
+        Password:
+        "10.8.248.14","SUCCESS","2016-02-17 19:05:24.446197","du -h /opt/nsmon/log",
+        "21M    /opt/nsmon/log"```
+        """
         if self.verbose is True:
             print string
 
@@ -74,7 +81,8 @@ class OutputThread(GenericThread):
         else:
             queueObj['command_output'] = "\n".join(queueObj['command_output'])
         csv_out = "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"" % (queueObj['host'], queueObj['connection_result'], datetime.datetime.now(), queueObj['commands'], queueObj['command_output'])
-        self.printToStdout(csv_out)
+        print_out = "\"%s\",\"%s\",\"%s\",\"%s\",\n\"%s\"" % (queueObj['host'], queueObj['connection_result'], datetime.datetime.now(), queueObj['commands'], queueObj['command_output'])
+        self.printToStdout(print_out)
         if self.outfile is not None:
             csv_out = "%s\n" % csv_out
             output = open(self.outfile, 'a')
