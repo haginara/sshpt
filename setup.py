@@ -38,7 +38,7 @@ setup(
     install_requires=install_requires,
     entry_points={
         'console_scripts': [
-            'sshpt = sshpt.sshpt:main',
+            'sshpt = sshpt.main:main',
         ],
     },
 )
