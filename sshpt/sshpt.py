@@ -36,8 +36,6 @@ This program is meant for situations where shared keys are not an option.  If al
 # Import built-in Python modules
 import sys
 
-import select
-
 from time import sleep
 import logging
 

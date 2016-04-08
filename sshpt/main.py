@@ -172,7 +172,7 @@ def main():
         stopSSHQueue()
         stopOutputThread()
     except Exception, detail:
-        logging.error(str(detail), exc_info=True)
+        print(str(detail))
         return_code = 2
         # Clean up
         stopSSHQueue()
