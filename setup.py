@@ -1,22 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from setuptools import setup, find_packages
-from sshpt import sshpt
+import sys
 
-version = sshpt.__version__
+from setuptools import setup, find_packages
+
+from sshpt import version
 
 EXCLUDE_FROM_PACKAGES = ['test']
+# Meta
+DESCRIPTION = 'SSH Power Tool, Run commands and copy files to multiple servers simultaneously WITHOUT requiring pre-shared authentication keys'
+__license__ = "GNU General Public License (GPL) Version 3"
+__author__ = 'Dan McDougall <YouKnowWho@YouKnowWhat.com>'
+__second_author__ = 'Jonghak Choi <haginara@gmail.com>'
 
-DESCRIPTION = 'SSH Power Tool' \
-    ' - Run commands and copy files to multiple servers simultaneously' \
-    ' WITHOUT requiring pre-shared authentication keys',
+install_requires = ['paramiko>=1.10,<2.0']
 
 setup(
     name='sshpt',
-    license=sshpt.__license__,
-    version=version,
-    author="{},{}".format(sshpt.__author__, sshpt.__second_author__),
+    license=__license__,
+    version=version.__version__,
+    author="{},{}".format(__author__, __second_author__),
     author_email='haginara@gmail.com',
     url='https://github.com/haginara/sshpt',
     description=DESCRIPTION,
@@ -31,12 +35,10 @@ setup(
         "Topic :: System :: Systems Administration",
     ],  # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
     packages=find_packages(exclude=EXCLUDE_FROM_PACKAGES),
+    install_requires=install_requires,
     entry_points={
         'console_scripts': [
-            'sshpt = sshpt:main',
+            'sshpt = sshpt.sshpt:main',
         ],
     },
-    install_requires=[
-        "paramiko>=1.15.0",
-    ],
 )

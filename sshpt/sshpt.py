@@ -31,12 +31,6 @@ If no username and/or password are provided as command line arguments or via a c
 This program is meant for situations where shared keys are not an option.  If all your hosts are configured with shared keys for passwordless logins you don't need the SSH Power Tool.
 """
 
-# Meta
-__license__ = "GNU General Public License (GPL) Version 3"
-__version_info__ = (1, 3, 8)
-__version__ = ".".join(map(str, __version_info__))
-__author__ = 'Dan McDougall <YouKnowWho@YouKnowWhat.com>'
-__second_author__ = 'Jonghak Choi <haginara@gmail.com>'
 
 # Import built-in Python modules
 import sys
@@ -44,6 +38,7 @@ import getpass
 import select
 from argparse import ArgumentParser
 from time import sleep
+import version
 import logging
 
 # Import Internal
@@ -107,7 +102,7 @@ class SSHPowerTool:
         """
         """
         self._params.update(kwargs)
-        
+
     def run(self):
         if self.output_queue is None:
             self.output_queue = startOutputThread(self.verbose, self.outfile)
@@ -174,7 +169,7 @@ def option_parse(options):
 
 def create_argument():
     usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
-    parser = ArgumentParser(usage=usage, version=__version__)
+    parser = ArgumentParser(usage=usage, version=version.__version__)
 
     host_group = parser.add_mutually_exclusive_group(required=True)
     host_group.add_argument("-f", "--file", dest="hostfile", default=None,
