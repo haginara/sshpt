@@ -82,8 +82,7 @@ class SSHPowerTool:
         self.remote_filepath = "/tmp/"# Destination path where the file should end up on the host
         self.execute = False# Whether or not the SFTP'd file should be executed after it is uploaded
         self.remove = False# Whether or not the SFTP'd file should be removed after execution
-        self.sudo = False# Whether or not sudo should be used for commands and file operations
-        self.run_as = 'root'# User to become when using sudo
+        self.sudo = 'root' # Whether or not sudo should be used for commands and file operations
         self.verbose = True# Whether or not we should output connection results to stdout
         self.outfile = None# Path to the file where we want to store connection results
         self.output_queue = None# Queue.Queue() where connection results should be put().  If none is given it will use the OutputThread default (output_queue)
@@ -123,7 +122,7 @@ class SSHPowerTool:
                         self.keyfile, self.keypass,
                         self.timeout,
                         self.commands, self.local_filepath, self.remote_filepath,
-                        self.execute, self.remove, self.sudo, self.run_as, self.port)
+                        self.execute, self.remove, self.sudo, self.port)
                 sleep(1)
         else:
             logging.error("Hosts are not given")
@@ -133,7 +132,7 @@ class SSHPowerTool:
         return self.output_queue
 
     def queueSSHConnection(self, host, username, password, keyfile, keypass, timeout,
-        commands, local_filepath, remote_filepath, execute, remove, sudo, run_as, port):
+        commands, local_filepath, remote_filepath, execute, remove, sudo, port):
         """Add files to the SSH Queue (ssh_connect_queue)"""
         queueObj = {}
         queueObj['host'] = host
@@ -148,7 +147,6 @@ class SSHPowerTool:
         queueObj['execute'] = execute
         queueObj['remove'] = remove
         queueObj['sudo'] = sudo
-        queueObj['run_as'] = run_as
         queueObj['port'] = port
 
         self.ssh_connect_queue.put(queueObj)

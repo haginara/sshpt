@@ -43,6 +43,5 @@ for host in results_queue.queue:
     #print "execute: %s" % host['execute']
     #print "remove: %s" % host['remove']
     #print "sudo: %s" % host['sudo']
-    #print "run_as: %s" % host['run_as']
     #print "port: %s" % host['port']
     print

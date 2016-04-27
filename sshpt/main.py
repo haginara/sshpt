@@ -20,12 +20,15 @@
 
 from __future__ import absolute_import
 
+import sys
 import select
 import getpass
 from argparse import ArgumentParser
+import logging
+logging.basicConfig(level=logging.ERROR)
 
-from . import version
-from .sshpt import SSHPowerTool
+import version
+from sshpt import SSHPowerTool
 
 
 def option_parse(options):
@@ -75,10 +78,8 @@ def create_argument():
         default=False, help="Remove (clean up) the SFTP'd file after execution.")
     parser.add_argument("-t", "--timeout", dest="timeout", default=30,
         help="Timeout (in seconds) before giving up on an SSH connection (default: 30)", metavar="<seconds>")
-    parser.add_argument("-s", "--sudo", action="store_true", dest="sudo", default=False,
+    parser.add_argument("-s", "--sudo", nargs="?", action="store", dest="sudo", default=False,
         help="Use sudo to execute the command (default: as root).")
-    parser.add_argument("-U", "--sudouser", dest="run_as", default="root",
-        help="Run the command (via sudo) as this user.", metavar="<username>")
 
     action_group = parser.add_mutually_exclusive_group(required=True)
     action_group.add_argument("-c", "--copy-file", dest="copy_file", default=None,
@@ -135,10 +136,9 @@ def main():
         sshpt.remote_filepath = options.destination
         sshpt.execute = options.execute
         sshpt.remove = options.remove
-        sshpt.sudo = options.sudo
+        sshpt.sudo = 'root' if options.sudo is None else options.sudo
         sshpt.max_threads = options.max_threads
         sshpt.timeout = options.timeout
-        sshpt.run_as = options.run_as
         sshpt.verbose = options.verbose
         sshpt.outfile = options.outfile
 
