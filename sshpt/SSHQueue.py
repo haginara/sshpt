@@ -271,7 +271,8 @@ class SSHThread(GenericThread):
                 connection_result = False
                 command_output = detail
             finally:
-                ssh.close()
+                if not isinstance(ssh, str):
+                    ssh.close()
             return connection_result, command_output
         return "Host name is not correct", command_output
 
