@@ -48,6 +48,11 @@ def create_argument():
         action="store_true", help="Read hosts from standard input")
     host_group.add_argument("--hosts", dest='hosts', default=None,
         help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
+
+    parser.add_argument("-i", "--ini", default=None,
+        help="Configuration file with INI Format")
+    parser.add_argument("-j", "--json", default=None,
+        help="Configuration file with JSON Format")
     parser.add_argument("-k", "--key-file", dest="keyfile", default=None,
         help="Location of the private key file", metavar="<file>")
     parser.add_argument("-K", "--key-pass", dest="keypass", default=None,
