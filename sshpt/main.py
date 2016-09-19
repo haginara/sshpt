@@ -22,6 +22,7 @@ from __future__ import absolute_import
 
 import select
 import getpass
+from ConfigParser import ConfigParser
 from argparse import ArgumentParser
 
 from . import version
@@ -49,10 +50,14 @@ def create_argument():
     host_group.add_argument("--hosts", dest='hosts', default=None,
         help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
 
-    parser.add_argument("-i", "--ini", default=None,
+    ini_group = parser.add_argument_group('ini_group', 'Using ini configuration')
+    ini_group.add_argument("-i", "--ini", default=None,
         help="Configuration file with INI Format")
-    parser.add_argument("-j", "--json", default=None,
+    ini_group.add_argument("servers", metavar='servers', nargs='*',
+        help="Choose the alias of servers")
+    ini_group.add_argument("-j", "--json", default=None,
         help="Configuration file with JSON Format")
+
     parser.add_argument("-k", "--key-file", dest="keyfile", default=None,
         help="Location of the private key file", metavar="<file>")
     parser.add_argument("-K", "--key-pass", dest="keypass", default=None,
@@ -123,6 +128,9 @@ def main():
             hosts = sys.stdin.read()
         elif options.hosts:
             hosts = options.hosts.split(":")
+        elif options.ini:
+            ini_config = ConfigParser()
+            ini_config.readfp(open(options.ini))
 
         sshpt = SSHPowerTool(hosts=hosts)
         sshpt.commands = options.commands
