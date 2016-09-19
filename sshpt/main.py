@@ -50,12 +50,9 @@ def create_argument():
     host_group.add_argument("--hosts", dest='hosts', default=None,
         help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
 
-    ini_group = parser.add_argument_group('ini_group', 'Using ini configuration')
-    ini_group.add_argument("-i", "--ini", default=None,
-        help="Configuration file with INI Format")
-    ini_group.add_argument("servers", metavar='servers', nargs='*',
-        help="Choose the alias of servers")
-    ini_group.add_argument("-j", "--json", default=None,
+    host_group.add_argument("-i", "--ini", default=None, nargs=3,
+        help="Configuration file with INI Format. ini path, server, command")
+    host_group.add_argument("-j", "--json", default=None,
         help="Configuration file with JSON Format")
 
     parser.add_argument("-k", "--key-file", dest="keyfile", default=None,
