@@ -50,10 +50,10 @@ def create_argument():
     host_group.add_argument("--hosts", dest='hosts', default=None,
         help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
 
-    host_group.add_argument("-i", "--ini", default=None, nargs=3,
-        help="Configuration file with INI Format. ini path, server, command")
-    host_group.add_argument("-j", "--json", default=None,
-        help="Configuration file with JSON Format")
+    host_group.add_argument("-i", "--ini", default=None, nargs=2,
+        help="Configuration file with INI Format. ex)--ini path, server")
+    host_group.add_argument("-j", "--json", default=None, nargs=2,
+        help="Configuration file with JSON Format. ex)--json path, server")
 
     parser.add_argument("-k", "--key-file", dest="keyfile", default=None,
         help="Location of the private key file", metavar="<file>")
@@ -108,6 +108,7 @@ def main():
         if 0 != option_parse(options):
             return 2
 
+        commands = None
         # Read in the host list to check
         ## host_auth_file format
         ## credential@host
@@ -127,10 +128,15 @@ def main():
             hosts = options.hosts.split(":")
         elif options.ini:
             ini_config = ConfigParser()
-            ini_config.readfp(open(options.ini))
+            ini_config.readfp(open(options.ini[0]))
+            hosts = [server[1] for server in ini_config.items("Server%s" % options.ini[1])]
+            for command in ini.config.items("Commands"):
+                if options.commands == command[0]:
+                    commands = command[1]
+                    break
 
         sshpt = SSHPowerTool(hosts=hosts)
-        sshpt.commands = options.commands
+        sshpt.commands = commands if commands else options.commands
 
         # Check to make sure we were passed at least one command line argument
         return_code = 0
