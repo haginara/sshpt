@@ -27,6 +27,8 @@ from argparse import ArgumentParser
 
 from . import version
 from .sshpt import SSHPowerTool
+from .SSHQueue import stopSSHQueue
+from .OutputThread import stopOutputThread
 
 
 def option_parse(options):
@@ -130,7 +132,7 @@ def main():
             ini_config = ConfigParser()
             ini_config.readfp(open(options.ini[0]))
             hosts = [server[1] for server in ini_config.items("Server%s" % options.ini[1])]
-            for command in ini.config.items("Commands"):
+            for command in ini_config.items("Commands"):
                 if options.commands == command[0]:
                     commands = command[1]
                     break
@@ -187,10 +189,12 @@ def main():
         # Clean up
         stopSSHQueue()
         stopOutputThread()
-    except Exception, detail:
-        print(str(detail))
+    """
+    except Exception as detail:
+        print(detail)
         return_code = 2
         # Clean up
         stopSSHQueue()
         stopOutputThread()
+    """
     return return_code

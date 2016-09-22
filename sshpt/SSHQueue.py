@@ -30,11 +30,11 @@ import logging
 # Import 3rd party modules
 try:
     import paramiko
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
 except ImportError:
     print("ERROR: The Paramiko module required to use sshpt.")
     print("Download it here: http://www.lag.net/paramiko/")
     sys.exit(1)
-
 #paramiko.util.log_to_file("debug.log")
 
 
@@ -230,8 +230,7 @@ class SSHThread(GenericThread):
                         if sudo:
                             temp_path = "/tmp/%s" % local_short_filename
                             self.sftpPut(ssh, local_filepath, temp_path)
-                            command_output.append(
-                                self.executeCommand(ssh, "mv %s %s" % (temp_path, remote_fullpath), sudo, run_as, password))
+                            command_output.append(self.executeCommand(ssh, "mv %s %s" % (temp_path, remote_fullpath), sudo, run_as, password))
                         else:
                             self.sftpPut(ssh, local_filepath, remote_fullpath)
                     except IOError as details:
@@ -267,7 +266,7 @@ class SSHThread(GenericThread):
             except Exception as detail:
                 # Connection failed
                 print sys.exc_info()
-                print "Exception: %s" % detail
+                print("Exception: %s" % detail)
                 connection_result = False
                 command_output = detail
             finally:
