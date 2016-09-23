@@ -34,14 +34,15 @@ This program is meant for situations where shared keys are not an option.  If al
 
 
 # Import built-in Python modules
+from __future__ import absolute_import
 import sys
 
 from time import sleep
 import logging
 
 # Import Internal
-from OutputThread import startOutputThread, stopOutputThread
-from SSHQueue import startSSHQueue, stopSSHQueue
+from .OutputThread import startOutputThread, stopOutputThread
+from .SSHQueue import startSSHQueue, stopSSHQueue
 
 logger = logging.getLogger("sshpt")
 

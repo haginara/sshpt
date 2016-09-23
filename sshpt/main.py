@@ -20,9 +20,13 @@
 
 from __future__ import absolute_import
 
+import sys
 import select
 import getpass
-from ConfigParser import ConfigParser
+if sys.version_info[0] == 2:
+    from ConfigParser import ConfigParser
+else:
+    from configparser import ConfigParser
 from argparse import ArgumentParser
 
 from . import version
@@ -33,8 +37,8 @@ from .OutputThread import stopOutputThread
 
 def option_parse(options):
     if options.outfile is None and options.verbose is False:
-        print "Error: You have not specified any mechanism to output results."
-        print "Please don't use quite mode (-q) without an output file (-o <file>)."
+        print("Error: You have not specified any mechanism to output results.")
+        print("Please don't use quite mode (-q) without an output file (-o <file>).")
         return 2
 
     return 0
@@ -51,7 +55,6 @@ def create_argument():
         action="store_true", help="Read hosts from standard input")
     host_group.add_argument("--hosts", dest='hosts', default=None,
         help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
-
     host_group.add_argument("-i", "--ini", default=None, nargs=2,
         help="Configuration file with INI Format. ex)--ini path, server")
     host_group.add_argument("-j", "--json", default=None, nargs=2,
@@ -175,7 +178,7 @@ def main():
         elif sshpt.password is None:
             sshpt.password = getpass.getpass('Password: ')
             if sshpt.password == '':
-                print '\nPleas type the password'
+                print ('\nPleas type the password')
                 return 2
         # This wierd little sequence of loops allows us to hit control-C
         # in the middle of program execution and get immediate results
@@ -183,7 +186,7 @@ def main():
         # Just to be safe we wait for the OutputThread to finish before moving on
         output_queue.join()
     except KeyboardInterrupt:
-        print 'caught KeyboardInterrupt, exiting...'
+        print ('caught KeyboardInterrupt, exiting...')
         # Return code should be 1 if the user issues a SIGINT (control-C)
         return_code = 1
         # Clean up

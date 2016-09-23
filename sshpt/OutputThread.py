@@ -18,7 +18,8 @@
 #
 #       http://www.gnu.org/licenses/gpl.html
 
-from Generic import GenericThread
+from __future__ import print_function
+from .Generic import GenericThread
 
 import datetime
 import threading
@@ -47,7 +48,7 @@ class OutputThread(GenericThread):
     def printToStdout(self, string):
         """Prints 'string' if self.verbose is set to True"""
         if self.verbose is True:
-            print string
+            print (string)
 
     def writeOut(self, queueObj):
         """Write relevant queueObj information to stdout and/or to the outfile (if one is set)"""
