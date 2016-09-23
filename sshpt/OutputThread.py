@@ -21,9 +21,13 @@
 from __future__ import print_function
 from .Generic import GenericThread
 
+import sys
 import datetime
 import threading
-import Queue
+if sys.version_info[0] == 3:
+    import queue as Queue
+else:
+    import Queue
 
 
 class OutputThread(GenericThread):
