@@ -114,6 +114,13 @@ class SSHPowerTool:
 
         if self.hosts:
             for host in self.hosts:
+
+                # Stripping off the whitespace
+                check_host=host['host'].strip()
+                if not check_host:
+                    continue
+                host['host']=check_host
+
                 if self.ssh_connect_queue.qsize() <= self.max_threads:
                     if self.username:
                         host['username'] = self.username
