@@ -24,9 +24,9 @@ import sys
 import select
 import getpass
 if sys.version_info[0] == 2:
-    from ConfigParser import ConfigParser
+    from ConfigParser import SafeConfigParser
 else:
-    from configparser import ConfigParser
+    from configparser import SafeConfigParser
 from argparse import ArgumentParser
 import logging
 logging.basicConfig(level=logging.ERROR)
@@ -42,7 +42,6 @@ def option_parse(options):
         print("Error: You have not specified any mechanism to output results.")
         print("Please don't use quite mode (-q) without an output file (-o <file>).")
         return 2
-
     return 0
 
 
@@ -57,8 +56,8 @@ def create_argument():
         action="store_true", help="Read hosts from standard input")
     host_group.add_argument("--hosts", dest='hosts', default=None,
         help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
-    host_group.add_argument("-i", "--ini", default=None, nargs=2,
-        help="Configuration file with INI Format. ex)--ini path, server")
+    host_group.add_argument("-i", "--ini-file", default=None, nargs=2,
+        help="Configuration file with INI Format. ex)--ini-file path, server")
     host_group.add_argument("-j", "--json", default=None, nargs=2,
         help="Configuration file with JSON Format. ex)--json path, server")
 
@@ -100,7 +99,26 @@ def create_argument():
         help='Commands', default=False)
 
     options = parser.parse_args()
-
+    if options.hostfile:
+        options.hosts = options.hostfile.read()
+    elif options.stdin:
+        # if stdin wasn't piped in, prompt the user for it now
+        if not select.select([sys.stdin, ], [], [], 0.0)[0]:
+            sys.stdout.write("Enter list of hosts (one entry per line). ")
+            sys.stdout.write("Ctrl-D to end input.\n")
+        # in either case, read data from stdin
+        options.hosts = sys.stdin.read()
+    elif options.hosts:
+        options.hosts = options.hosts.split(":")
+    elif options.ini_file:
+        ini_config = SafeConfigParser(allow_no_value=True)
+        ini_config.read(options.ini[0])
+        options.hosts = [server[1] for server in ini_config.items("Server%s" % options.ini[1])]
+        for command in ini_config.items("Commands"):
+            if options.commands == command[0]:
+                options.commands = command[1]
+                break
+    options.sudo = 'root' if options.sudo is None else options.sudo
     return options
 
 
@@ -108,79 +126,52 @@ def main():
     """Main program function:  Grabs command-line arguments, starts up threads, and runs the program.
     """
     # Grab command line arguments and the command to run (if any)
-    try:
-        options = create_argument()
-        if 0 != option_parse(options):
+    options = create_argument()
+    if 0 != option_parse(options):
+        return 2
+
+    sshpt = SSHPowerTool(hosts=hosts)
+    sshpt.commands = options.commands
+
+    # Check to make sure we were passed at least one command line argument
+    return_code = 0
+
+    # Assign the options to more readable variables
+    sshpt.username = options.username
+    sshpt.password = options.password
+    sshpt.keyfile = options.keyfile
+    sshpt.keypass = options.keypass
+    sshpt.port = options.port
+    sshpt.local_filepath = options.copy_file
+    sshpt.remote_filepath = options.destination
+    sshpt.execute = options.execute
+    sshpt.remove = options.remove
+    sshpt.sudo = 'root' if options.sudo is None else options.sudo
+    sshpt.max_threads = options.max_threads
+    sshpt.timeout = options.timeout
+    sshpt.verbose = options.verbose
+    sshpt.outfile = options.outfile
+
+    if options.authfile is not None:
+        credentials = open(options.authfile).readline()
+        username, password = credentials.split(":")
+        # Get rid of trailing newline
+        password = password.rstrip('\n')
+
+    # Get the username and password to use when checking hosts
+    if sshpt.username is None:
+        sshpt.username = raw_input('Username: ')
+    if sshpt.keyfile:
+        if sshpt.keypass is None:
+            sshpt.keypass = getpass.getpass('Passphrase: ')
+    elif sshpt.password is None:
+        sshpt.password = getpass.getpass('Password: ')
+        if sshpt.password == '':
+            print ('\nPleas type the password')
             return 2
-
-        commands = None
-        # Read in the host list to check
-        ## host_auth_file format
-        ## credential@host
-        ## user:pass@host
-        if options.hostfile:
-            # Format:
-            # <user:password>@<host>
-            hosts = options.hostfile.read()
-        elif options.stdin:
-            # if stdin wasn't piped in, prompt the user for it now
-            if not select.select([sys.stdin, ], [], [], 0.0)[0]:
-                sys.stdout.write("Enter list of hosts (one entry per line). ")
-                sys.stdout.write("Ctrl-D to end input.\n")
-            # in either case, read data from stdin
-            hosts = sys.stdin.read()
-        elif options.hosts:
-            hosts = options.hosts.split(":")
-        elif options.ini:
-            ini_config = ConfigParser()
-            ini_config.readfp(open(options.ini[0]))
-            hosts = [server[1] for server in ini_config.items("Server%s" % options.ini[1])]
-            for command in ini_config.items("Commands"):
-                if options.commands == command[0]:
-                    commands = command[1]
-                    break
-
-        sshpt = SSHPowerTool(hosts=hosts)
-        sshpt.commands = commands if commands else options.commands
-
-        # Check to make sure we were passed at least one command line argument
-        return_code = 0
-
-        # Assign the options to more readable variables
-        sshpt.username = options.username
-        sshpt.password = options.password
-        sshpt.keyfile = options.keyfile
-        sshpt.keypass = options.keypass
-        sshpt.port = options.port
-        sshpt.local_filepath = options.copy_file
-        sshpt.remote_filepath = options.destination
-        sshpt.execute = options.execute
-        sshpt.remove = options.remove
-        sshpt.sudo = 'root' if options.sudo is None else options.sudo
-        sshpt.max_threads = options.max_threads
-        sshpt.timeout = options.timeout
-        sshpt.verbose = options.verbose
-        sshpt.outfile = options.outfile
-
-        if options.authfile is not None:
-            credentials = open(options.authfile).readline()
-            username, password = credentials.split(":")
-            # Get rid of trailing newline
-            password = password.rstrip('\n')
-
-        # Get the username and password to use when checking hosts
-        if sshpt.username is None:
-            sshpt.username = raw_input('Username: ')
-        if sshpt.keyfile:
-            if sshpt.keypass is None:
-                sshpt.keypass = getpass.getpass('Passphrase: ')
-        elif sshpt.password is None:
-            sshpt.password = getpass.getpass('Password: ')
-            if sshpt.password == '':
-                print ('\nPleas type the password')
-                return 2
-        # This wierd little sequence of loops allows us to hit control-C
-        # in the middle of program execution and get immediate results
+    # This wierd little sequence of loops allows us to hit control-C
+    # in the middle of program execution and get immediate results
+    try:
         output_queue = sshpt()
         # Just to be safe we wait for the OutputThread to finish before moving on
         output_queue.join()
@@ -191,12 +182,4 @@ def main():
         # Clean up
         stopSSHQueue()
         stopOutputThread()
-    """
-    except Exception as detail:
-        print(detail)
-        return_code = 2
-        # Clean up
-        stopSSHQueue()
-        stopOutputThread()
-    """
     return return_code
