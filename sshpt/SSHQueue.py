@@ -18,12 +18,15 @@
 #
 #       http://www.gnu.org/licenses/gpl.html
 
-from Generic import GenericThread, normalizeString
+from .Generic import GenericThread, normalizeString
 
 import sys
 import os
 import threading
-import Queue
+if sys.version_info[0] == 3:
+    import queue as Queue
+else:
+    import Queue
 import getpass
 import logging
 
@@ -32,11 +35,11 @@ logger = logging.getLogger("sshpt")
 # Import 3rd party modules
 try:
     import paramiko
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
 except ImportError:
     print("ERROR: The Paramiko module required to use sshpt.")
     print("Download it here: http://www.lag.net/paramiko/")
     sys.exit(1)
-
 #paramiko.util.log_to_file("debug.log")
 
 
@@ -112,8 +115,8 @@ class SSHThread(GenericThread):
                 queueObj['command_output'] = command_output
                 self.output_queue.put(queueObj)
                 self.ssh_connect_queue.task_done()
-        except Exception, detail:
-            print detail
+        except Exception as detail:
+            print (detail)
             self.quit()
 
     def create_key(self, key_file, key_passwd):
@@ -123,7 +126,7 @@ class SSHThread(GenericThread):
             if not key_passwd:
                 key_passwd = getpass.getpass("Enter passphrase for %s: " % key_file)
             key = paramiko.RSAKey.from_private_key_file(key_file, password=key_passwd)
-        except Exception, detail:
+        except Exception as detail:
             print("Error: Create_key: ".format(detail))
         return key
     
@@ -142,13 +145,25 @@ class SSHThread(GenericThread):
         ssh = paramiko.SSHClient()
         if key_file:
             try:
+<<<<<<< .mine
                 ssh = self.connect_using_keyfile(ssh, host, port, username, timeout, key_file, key_pass)
             except paramiko.SSHException as detail:
                 print 'Could not read private key; bad password?'
+
+
+
+=======
+                #print 'KEY: {},{}'.format(key_file, key_pass)
+                key = self.create_key(key_file, key_pass)
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(host, port=port, username=username, timeout=timeout, pkey=key)
+            except paramiko.SSHException as detail:
+                print('Could not read private key; bad password?')
+>>>>>>> .theirs
                 ssh = str(detail)
             except Exception as detail:
                 # Connecting failed (for whatever reason)
-                print sys.exc_info()
+                print(sys.exc_info())
                 print('Connecting failed (for whatever reason)')
                 ssh = str(detail)
         else:
@@ -156,7 +171,11 @@ class SSHThread(GenericThread):
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 logger.debug("paramikoConnect:connect, {}:{}".format(username, host))
                 ssh.connect(host, port=port, username=username, password=password, timeout=timeout)
+<<<<<<< .mine
             except paramiko.SSHException as detail:
+=======
+            except paramiko.SSHException as detail:
+>>>>>>> .theirs
                 #logger.debug('Bad password?')
                 ssh = str(detail)
             except Exception as detail:
@@ -234,8 +253,7 @@ class SSHThread(GenericThread):
                         if sudo:
                             temp_path = "/tmp/%s" % local_short_filename
                             self.sftpPut(ssh, local_filepath, temp_path)
-                            command_output.append(
-                                self.executeCommand(ssh, "mv %s %s" % (temp_path, remote_fullpath), sudo, password))
+                            command_output.append(self.executeCommand(ssh, "mv %s %s" % (temp_path, remote_fullpath), sudo, run_as, password))
                         else:
                             self.sftpPut(ssh, local_filepath, remote_fullpath)
                     except IOError as details:
@@ -270,13 +288,17 @@ class SSHThread(GenericThread):
                     command_count = command_count + 1
             except Exception as detail:
                 # Connection failed
-                print sys.exc_info()
-                print "Exception: %s" % detail
+                print (sys.exc_info())
+                print("Exception: %s" % detail)
                 connection_result = False
                 command_output = detail
             finally:
                 if not isinstance(ssh, basestring):
+<<<<<<< .mine
                     ssh.close()
+=======
+                    ssh.close()
+>>>>>>> .theirs
             return connection_result, command_output
         return "Host name is not correct", command_output
 

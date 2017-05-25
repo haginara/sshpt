@@ -23,18 +23,24 @@ from __future__ import absolute_import
 import sys
 import select
 import getpass
+if sys.version_info[0] == 2:
+    from ConfigParser import ConfigParser
+else:
+    from configparser import ConfigParser
 from argparse import ArgumentParser
 import logging
 logging.basicConfig(level=logging.ERROR)
 
 import version
 from sshpt import SSHPowerTool
+from .SSHQueue import stopSSHQueue
+from .OutputThread import stopOutputThread
 
 
 def option_parse(options):
     if options.outfile is None and options.verbose is False:
-        print "Error: You have not specified any mechanism to output results."
-        print "Please don't use quite mode (-q) without an output file (-o <file>)."
+        print("Error: You have not specified any mechanism to output results.")
+        print("Please don't use quite mode (-q) without an output file (-o <file>).")
         return 2
 
     return 0
@@ -51,6 +57,11 @@ def create_argument():
         action="store_true", help="Read hosts from standard input")
     host_group.add_argument("--hosts", dest='hosts', default=None,
         help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
+    host_group.add_argument("-i", "--ini", default=None, nargs=2,
+        help="Configuration file with INI Format. ex)--ini path, server")
+    host_group.add_argument("-j", "--json", default=None, nargs=2,
+        help="Configuration file with JSON Format. ex)--json path, server")
+
     parser.add_argument("-k", "--key-file", dest="keyfile", default=None,
         help="Location of the private key file", metavar="<file>")
     parser.add_argument("-K", "--key-pass", dest="keypass", default=None,
@@ -102,6 +113,7 @@ def main():
         if 0 != option_parse(options):
             return 2
 
+        commands = None
         # Read in the host list to check
         ## host_auth_file format
         ## credential@host
@@ -119,9 +131,17 @@ def main():
             hosts = sys.stdin.read()
         elif options.hosts:
             hosts = options.hosts.split(":")
+        elif options.ini:
+            ini_config = ConfigParser()
+            ini_config.readfp(open(options.ini[0]))
+            hosts = [server[1] for server in ini_config.items("Server%s" % options.ini[1])]
+            for command in ini_config.items("Commands"):
+                if options.commands == command[0]:
+                    commands = command[1]
+                    break
 
         sshpt = SSHPowerTool(hosts=hosts)
-        sshpt.commands = options.commands
+        sshpt.commands = commands if commands else options.commands
 
         # Check to make sure we were passed at least one command line argument
         return_code = 0
@@ -157,7 +177,7 @@ def main():
         elif sshpt.password is None:
             sshpt.password = getpass.getpass('Password: ')
             if sshpt.password == '':
-                print '\nPleas type the password'
+                print ('\nPleas type the password')
                 return 2
         # This wierd little sequence of loops allows us to hit control-C
         # in the middle of program execution and get immediate results
@@ -165,16 +185,18 @@ def main():
         # Just to be safe we wait for the OutputThread to finish before moving on
         output_queue.join()
     except KeyboardInterrupt:
-        print 'caught KeyboardInterrupt, exiting...'
+        print ('caught KeyboardInterrupt, exiting...')
         # Return code should be 1 if the user issues a SIGINT (control-C)
         return_code = 1
         # Clean up
         stopSSHQueue()
         stopOutputThread()
-    except Exception, detail:
-        print(str(detail))
+    """
+    except Exception as detail:
+        print(detail)
         return_code = 2
         # Clean up
         stopSSHQueue()
         stopOutputThread()
+    """
     return return_code

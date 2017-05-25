@@ -1,6 +1,6 @@
 # -*- mode: python -*-
 import os
-a = Analysis(['sshpt.py'],
+a = Analysis(['sshpt/__main__.py'],
              pathex=['./sshpt'],
              hiddenimports=['Crypto.Cipher.ARC4','Crypto.Hash.SHA256','Crypto.Random','Crypto.PublicKey.RSA','Crypto.Signature.PKCS1_v1_5', 'pkg_resources'],
              hookspath=None,
