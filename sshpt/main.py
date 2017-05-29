@@ -31,8 +31,8 @@ from argparse import ArgumentParser
 import logging
 logging.basicConfig(level=logging.ERROR)
 
-import version
-from sshpt import SSHPowerTool
+from . import version
+from .sshpt import SSHPowerTool
 from .SSHQueue import stopSSHQueue
 from .OutputThread import stopOutputThread
 
@@ -80,7 +80,7 @@ def create_argument():
         help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).", metavar="<password>")
     parser.add_argument("-q", "--quiet", action="store_false", dest="verbose",
         default=True, help="Don't print status messages to stdout (only print errors).")
-    parser.add_argument("-d", "--dest", dest="destination", default="/tmp/",
+    parser.add_argument("-d", "--dest", dest="remote_filepath", default="/tmp/",
         help="Path where the file should be copied on the remote host (default: /tmp/).", metavar="<path>")
     parser.add_argument("-x", "--execute", action="store_true", dest="execute",
         default=False, help="Execute the copied file (just like executing a given command).")
@@ -92,7 +92,7 @@ def create_argument():
         help="Use sudo to execute the command (default: as root).")
 
     action_group = parser.add_mutually_exclusive_group(required=True)
-    action_group.add_argument("-c", "--copy-file", dest="copy_file", default=None,
+    action_group.add_argument("-c", "--copy-file", dest="local_filepath", default=None,
         help="Location of the file to copy to and optionally execute (-x) on hosts.",
         metavar="<file>")
     action_group.add_argument('commands', metavar='Commands', type=str, nargs='*',
@@ -130,27 +130,8 @@ def main():
     if 0 != option_parse(options):
         return 2
 
-    sshpt = SSHPowerTool(hosts=hosts)
-    sshpt.commands = options.commands
-
-    # Check to make sure we were passed at least one command line argument
     return_code = 0
-
-    # Assign the options to more readable variables
-    sshpt.username = options.username
-    sshpt.password = options.password
-    sshpt.keyfile = options.keyfile
-    sshpt.keypass = options.keypass
-    sshpt.port = options.port
-    sshpt.local_filepath = options.copy_file
-    sshpt.remote_filepath = options.destination
-    sshpt.execute = options.execute
-    sshpt.remove = options.remove
-    sshpt.sudo = 'root' if options.sudo is None else options.sudo
-    sshpt.max_threads = options.max_threads
-    sshpt.timeout = options.timeout
-    sshpt.verbose = options.verbose
-    sshpt.outfile = options.outfile
+    sshpt = SSHPowerTool(**options)
 
     if options.authfile is not None:
         credentials = open(options.authfile).readline()

@@ -129,7 +129,7 @@ class SSHThread(GenericThread):
         except Exception as detail:
             print("Error: Create_key: ".format(detail))
         return key
-    
+
     def connect_using_keyfile(self, ssh, host, port, username, timeout, key_file, key_pass):
         #print 'KEY: {},{}'.format(key_file, key_pass)
         key = self.create_key(key_file, key_pass)
@@ -145,21 +145,9 @@ class SSHThread(GenericThread):
         ssh = paramiko.SSHClient()
         if key_file:
             try:
-<<<<<<< .mine
                 ssh = self.connect_using_keyfile(ssh, host, port, username, timeout, key_file, key_pass)
             except paramiko.SSHException as detail:
                 print 'Could not read private key; bad password?'
-
-
-
-=======
-                #print 'KEY: {},{}'.format(key_file, key_pass)
-                key = self.create_key(key_file, key_pass)
-                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(host, port=port, username=username, timeout=timeout, pkey=key)
-            except paramiko.SSHException as detail:
-                print('Could not read private key; bad password?')
->>>>>>> .theirs
                 ssh = str(detail)
             except Exception as detail:
                 # Connecting failed (for whatever reason)
@@ -171,11 +159,7 @@ class SSHThread(GenericThread):
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 logger.debug("paramikoConnect:connect, {}:{}".format(username, host))
                 ssh.connect(host, port=port, username=username, password=password, timeout=timeout)
-<<<<<<< .mine
             except paramiko.SSHException as detail:
-=======
-            except paramiko.SSHException as detail:
->>>>>>> .theirs
                 #logger.debug('Bad password?')
                 ssh = str(detail)
             except Exception as detail:
@@ -294,11 +278,7 @@ class SSHThread(GenericThread):
                 command_output = detail
             finally:
                 if not isinstance(ssh, basestring):
-<<<<<<< .mine
                     ssh.close()
-=======
-                    ssh.close()
->>>>>>> .theirs
             return connection_result, command_output
         return "Host name is not correct", command_output
 
