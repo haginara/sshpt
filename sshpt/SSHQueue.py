@@ -77,46 +77,13 @@ class SSHThread(GenericThread):
                 queueObj = self.ssh_connect_queue.get()
                 if queueObj == 'quit':
                     self.quit()
-
-                # These variable assignments are just here for readability further down
-                host = queueObj['host']
-                username = queueObj['username']
-                password = queueObj['password']
-                keyfile = queueObj['keyfile']
-                keypass = queueObj['keypass']
-                timeout = queueObj['timeout']
-                commands = queueObj['commands']
-                local_filepath = queueObj['local_filepath']
-                remote_filepath = queueObj['remote_filepath']
-                execute = queueObj['execute']
-                remove = queueObj['remove']
-                sudo = queueObj['sudo']
-                port = int(queueObj['port'])
-
-                success, command_output = self.attemptConnection(
-                    host,
-                    username,
-                    password,
-                    keyfile,
-                    keypass,
-                    timeout,
-                    commands,
-                    local_filepath,
-                    remote_filepath,
-                    execute,
-                    remove,
-                    sudo,
-                    port
-                )
-                if success:
-                    queueObj['connection_result'] = "SUCCESS"
-                else:
-                    queueObj['connection_result'] = "FAILED"
+                success, command_output = self.attemptConnection(**queueObj)
+                queueObj['connection_result'] = "SUCCESS" if success else "FAILED"
                 queueObj['command_output'] = command_output
                 self.output_queue.put(queueObj)
                 self.ssh_connect_queue.task_done()
-        except Exception as detail:
-            print (detail)
+        except Exception as e:
+            print ("Failed to run SSH Thread reason: %s" % e)
             self.quit()
 
     def create_key(self, key_file, key_passwd):
@@ -217,7 +184,6 @@ class SSHThread(GenericThread):
 
         connection_result = True
         command_output = []
-
         ssh = None
         if host != "":
             try:
