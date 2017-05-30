@@ -19,6 +19,8 @@
 #       http://www.gnu.org/licenses/gpl.html
 
 import re
+from itertools import cycle
+import base64
 import threading
 
 
@@ -30,6 +32,36 @@ def normalizeString(string):
     srting = re.sub(r'(")', '""', string) # Convert double quotes to double double quotes (e.g. 'foo "bar" blah' becomes 'foo ""bar"" blah')
     return string
 
+
+class Password(object):
+    def __init__(self, s):
+        self.password = s
+
+    def __str__(self):
+        return self.password
+
+    def __repr__(self):
+        return self.__str__()
+
+    @property
+    def password(self):
+        return Password.decode(self.__password)
+
+    @password.setter
+    def password(self, p):
+        self.__password = Password.encode(p)
+
+    @staticmethod
+    def encode(s, key='sshpt256'):
+        enc = [chr((ord(s[i]) + ord(key[i % len(key)])) % 256) for i in range(len(s))]
+        enc_str = base64.urlsafe_b64encode("".join(enc))
+        return enc_str
+
+    @staticmethod
+    def decode(s, key='sshpt256'):
+        s = base64.urlsafe_b64decode(s)
+        dec = [chr(abs(ord(s[i]) - ord(key[i % len(key)])) % 256) for i in xrange(len(s))]
+        return "".join(dec)
 
 class GenericThread(threading.Thread):
     """A baseline thread that includes the functions we want for all our threads so we don't have to duplicate code."""
