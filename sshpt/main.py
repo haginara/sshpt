@@ -36,14 +36,14 @@ from .sshpt import SSHPowerTool
 from .SSHQueue import stopSSHQueue
 from .OutputThread import stopOutputThread
 
+from .Generic import Password
 
 def _parse_hostfile(host):
     keys = ['host', 'username', 'password']
-    h = {'host': '', 'username': '', 'password': ''}
     values = host.split(":")
-    for i, value in enumerate(values):
-        h[keys[i]] = values[i]
-    return h
+    hosts = dict(zip(keys, values))
+    hosts['password'] = Password(hosts['password'])
+    return hosts
 
 
 def _normalize_hosts(hosts):
@@ -142,7 +142,7 @@ def create_argument():
         credentials = open(options.authfile).readline()
         options.username, options.password = credentials.split(":")
         # Get rid of trailing newline
-        options.password = password.rstrip('\n')
+        options.password = Password(password.rstrip('\n'))
 
     options.sudo = 'root' if options.sudo is None else options.sudo
 
@@ -150,9 +150,9 @@ def create_argument():
     if options.username is None:
         options.username = raw_input('Username: ')
     if options.keyfile and options.keypass is None:
-        options.keypass = getpass.getpass('Passphrase: ')
+        options.keypass = Password(getpass.getpass('Passphrase: '))
     elif options.password is None:
-        options.password = getpass.getpass('Password: ')
+        options.password = Password(getpass.getpass('Password: '))
         if options.password == '':
             print ('\nPlease type the password')
             raise Exception('Please type the password')
