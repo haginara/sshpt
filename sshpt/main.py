@@ -143,7 +143,6 @@ def create_argument():
         options.username, options.password = credentials.split(":")
         # Get rid of trailing newline
         options.password = Password(password.rstrip('\n'))
-
     options.sudo = 'root' if options.sudo is None else options.sudo
 
     # Get the username and password to use when checking hosts

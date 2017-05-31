@@ -131,7 +131,7 @@ class SSHThread(GenericThread):
                 ssh = str(detail)
             except Exception as detail:
                 # Connecting failed (for whatever reason)
-                print('Connecting failed (for whatever reason)')
+                print('Connecting failed (for whatever reason), %s' % detail)
                 ssh = str(detail)
         return ssh
 

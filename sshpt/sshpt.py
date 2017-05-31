@@ -51,42 +51,27 @@ class SSHPowerTool(object):
     #def __init__(self, **kwargs):
     def __init__(self, options):
         self.options = options
-        self.hosts = ""
-        self.username = ""
-        self.password = ""
-        self.keyfile = ""
-        self.keypass = ""
-        self.max_threads = 10 # Maximum number of simultaneous connection attempts
-        self.timeout = 30 # Connection timeout
-        self.commands = False # List - Commands to execute on hosts (if False nothing will be executed)
-        self.local_filepath = False # Local path of the file to SFTP
-        self.remote_filepath = "/tmp/" # Destination path where the file should end up on the host
-        self.execute = False # Whether or not the SFTP'd file should be executed after it is uploaded
-        self.remove = False # Whether or not the SFTP'd file should be removed after execution
-        self.sudo = 'root' # Whether or not sudo should be used for commands and file operations
-        self.verbose = True # Whether or not we should output connection results to stdout
-        self.outfile = None # Path to the file where we want to store connection results
         self.output_queue = None # Queue.Queue() where connection results should be put().  If none is given it will use the OutputThread default (output_queue)
-        self.port = 22 # Port to use when connecting
         self.ssh_connect_queue = None
-        self._params = {}
 
     def __call__(self):
         return self.run()
 
     def run(self):
         if self.output_queue is None:
-            self.output_queue = startOutputThread(self.verbose, self.outfile)
+            self.output_queue = startOutputThread(self.options.verbose, self.options.outfile)
         # Start up the Output and SSH threads
-        self.ssh_connect_queue = startSSHQueue(self.output_queue, self.max_threads)
-        if not self.commands and not self.local_filepath:
+        self.ssh_connect_queue = startSSHQueue(self.output_queue, self.options.max_threads)
+        if not self.options.commands and not self.options.local_filepath:
             # Assume we're just doing a connection test
-            self.commands = ['echo CONNECTION TEST', ]
+            self.options.commands = ['echo CONNECTION TEST', ]
 
         for host in self.options.hosts:
-            if self.ssh_connect_queue.qsize() <= self.max_threads:
+            if self.ssh_connect_queue.qsize() <= self.options.max_threads:
                 queueObj = dict(
-                    host=host.get('host'), username=host.get('username', self.options.username), password=host.get('password', self.options.password),
+                    host=host.get('host'),
+                    username=host.get('username', self.options.username),
+                    password=host.get('password', self.options.password).password,
                     keyfile=self.options.keyfile, keypass=self.options.keypass,
                     timeout=self.options.timeout,
                     commands=self.options.commands,
