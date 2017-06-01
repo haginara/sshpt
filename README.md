@@ -1,6 +1,7 @@
 sshpt -- SSH Power Tool
 =======================
 
+[![PyPI version](https://badge.fury.io/py/sshpt.svg)](https://badge.fury.io/py/sshpt)
 [![Build Status](https://travis-ci.org/haginara/sshpt.svg?branch=1.3.7)](https://travis-ci.org/haginara/sshpt)
 
 Dan Mcdougall wrote sshpt(SSH Power Tool) and maintained it.
