@@ -1,4 +1,4 @@
-import main
+from sshpt import main
 
 
 if __name__ == '__main__':
