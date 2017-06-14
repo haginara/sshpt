@@ -1,2 +1,5 @@
-import sshpt.main
-sshpt.main.main()
+from sshpt import main
+
+
+if __name__ == '__main__':
+    main.main()

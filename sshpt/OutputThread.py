@@ -67,9 +67,9 @@ class OutputThread(GenericThread):
         else:
             if len(queueObj['commands']) > 1:
                 # Only prepend 'index: ' if we were passed more than one command
-                queueObj['commands'] = "\n".join(["%s: sudo -u %s %s" % (index, queueObj['run_as'], command) for index, command in enumerate(queueObj['commands'])])
+                queueObj['commands'] = "\n".join(["%s: sudo -u %s %s" % (index, queueObj['sudo'], command) for index, command in enumerate(queueObj['commands'])])
             else:
-                queueObj['commands'] = "sudo -u %s %s" % (queueObj['run_as'], "".join(queueObj['commands']))
+                queueObj['commands'] = "sudo -u %s %s" % (queueObj['sudo'], "".join(queueObj['commands']))
         if isinstance(queueObj['command_output'], str):
             # Since it is a string we'll assume it is already formatted properly
             pass
