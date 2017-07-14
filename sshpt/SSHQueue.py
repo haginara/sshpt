@@ -83,7 +83,7 @@ class SSHThread(GenericThread):
                 self.output_queue.put(queueObj)
                 self.ssh_connect_queue.task_done()
         except Exception as e:
-            print ("Failed to run SSH Thread reason: %s" % e)
+            print("Failed to run SSH Thread reason: %s" % e)
             self.quit()
 
     def create_key(self, key_file, key_passwd):
@@ -114,7 +114,7 @@ class SSHThread(GenericThread):
             try:
                 ssh = self.connect_using_keyfile(ssh, host, port, username, timeout, key_file, key_pass)
             except paramiko.SSHException as detail:
-                print 'Could not read private key; bad password?'
+                print('Could not read private key; bad password?')
                 ssh = str(detail)
             except Exception as detail:
                 # Connecting failed (for whatever reason)
@@ -188,7 +188,7 @@ class SSHThread(GenericThread):
         if host != "":
             try:
                 ssh = self.paramikoConnect(host, username, password=password, timeout=timeout, port=port, key_file=keyfile, key_pass=keypass)
-                if isinstance(ssh, basestring):
+                if not isinstance(ssh, paramiko.SSHClient):
                     # If ssh is a string that means the connection failed and 'ssh' is the details as to why
                     connection_result = False
                     command_output = ssh
@@ -238,12 +238,12 @@ class SSHThread(GenericThread):
                     command_count = command_count + 1
             except Exception as detail:
                 # Connection failed
-                print (sys.exc_info())
+                print(sys.exc_info())
                 print("Exception: %s" % detail)
                 connection_result = False
                 command_output = detail
             finally:
-                if not isinstance(ssh, basestring):
+                if isinstance(ssh, paramiko.SSHClient):
                     ssh.close()
             return connection_result, command_output
         return "Host name is not correct", command_output

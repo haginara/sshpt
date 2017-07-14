@@ -40,7 +40,7 @@ from .Generic import Password
 
 def _parse_hostfile(host):
     keys = ['host', 'username', 'password']
-    values = host.split(":")
+    values = host.split(",")
     hosts = dict(zip(keys, values))
     hosts['password'] = Password(hosts['password'])
     return hosts
@@ -52,7 +52,7 @@ def _normalize_hosts(hosts):
     if isinstance(hosts, str):
         hosts = filter(lambda h: (not h.startswith("#") and h != ""), hosts.splitlines())
         hosts = [host.strip() for host in hosts]
-    return [_parse_hostfile(host) if ':' in host else {'host': host} for host in hosts]
+    return [_parse_hostfile(host) if ',' in host else {'host': host} for host in hosts]
 
 
 def option_parse(options):
@@ -65,15 +65,15 @@ def option_parse(options):
 
 def create_argument():
     usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
-    parser = ArgumentParser(usage=usage, version=version.__version__)
-
+    parser = ArgumentParser(usage=usage)
+    parser.add_argument('--version', action='version', version=version.__version__)
     host_group = parser.add_mutually_exclusive_group(required=True)
     host_group.add_argument("-f", "--file", dest="hostfile", default=None, type=open,
         help="Location of the file containing the host list.")
     host_group.add_argument("-S", "--stdin", dest="stdin", default=False,
         action="store_true", help="Read hosts from standard input")
     host_group.add_argument("--hosts", dest='hosts', default=None,
-        help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
+        help='Specify a host list on the command line. ex)--hosts="host1,host2,host3"')
     host_group.add_argument("-i", "--ini-file", default=None, nargs=2,
         help="Configuration file with INI Format. ex)--ini-file path, server")
     host_group.add_argument("-j", "--json", default=None, nargs=2,
@@ -125,7 +125,7 @@ def create_argument():
         # in either case, read data from stdin
         options.hosts = sys.stdin.read()
     elif options.hosts:
-        options.hosts = options.hosts.split(":")
+        options.hosts = options.hosts.split(",")
     elif options.ini_file:
         ini_config = SafeConfigParser(allow_no_value=True)
         ini_config.read(options.ini_file[0])

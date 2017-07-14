@@ -54,13 +54,20 @@ class Password(object):
     @staticmethod
     def encode(s, key='sshpt256'):
         enc = [chr((ord(s[i]) + ord(key[i % len(key)])) % 256) for i in range(len(s))]
-        enc_str = base64.urlsafe_b64encode("".join(enc))
+        try:
+            enc = "".join(enc).encode()
+        except UnicodeDecodeError:
+            enc = "".join(enc)
+        enc_str = base64.urlsafe_b64encode(enc)
         return enc_str
 
     @staticmethod
     def decode(s, key='sshpt256'):
-        s = base64.urlsafe_b64decode(s)
-        dec = [chr(abs(ord(s[i]) - ord(key[i % len(key)])) % 256) for i in xrange(len(s))]
+        try:
+            s = base64.urlsafe_b64decode(s).decode()
+        except UnicodeDecodeError:
+            s = base64.urlsafe_b64decode(s)
+        dec = [chr(abs(ord(s[i]) - ord(key[i % len(key)])) % 256) for i in range(len(s))]
         return "".join(dec)
 
 class GenericThread(threading.Thread):

@@ -1,0 +1,7 @@
+*.un~
+*.pyc
+*.swp
+build
+dist
+env
+sshpt.egg-info
