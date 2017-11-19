@@ -19,6 +19,7 @@
 #       http://www.gnu.org/licenses/gpl.html
 
 from __future__ import absolute_import
+from __future__ import print_function
 
 import sys
 import select
@@ -65,8 +66,9 @@ def option_parse(options):
 
 def create_argument():
     usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
-    parser = ArgumentParser(usage=usage, version=version.__version__)
-
+    parser = ArgumentParser(usage=usage)
+    
+    parser.add_argument('-v', '--version', action='version', version=version.__version__)
     host_group = parser.add_mutually_exclusive_group(required=True)
     host_group.add_argument("-f", "--file", dest="hostfile", default=None, type=open,
         help="Location of the file containing the host list.")

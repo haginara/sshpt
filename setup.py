@@ -24,7 +24,7 @@ setup(
     author_email='haginara@gmail.com',
     url='https://github.com/haginara/sshpt',
     description=DESCRIPTION,
-    long_description=open('README.txt').read(),
+    long_description=open('README.md').read(),
     keywords='ssh administration parallel',
     classifiers=[
         "Development Status :: 4 - Beta",

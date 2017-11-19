@@ -25,6 +25,7 @@ import os
 import threading
 if sys.version_info[0] == 3:
     import queue as Queue
+    basestring = str
 else:
     import Queue
 import getpass
@@ -114,7 +115,7 @@ class SSHThread(GenericThread):
             try:
                 ssh = self.connect_using_keyfile(ssh, host, port, username, timeout, key_file, key_pass)
             except paramiko.SSHException as detail:
-                print 'Could not read private key; bad password?'
+                print('Could not read private key; bad password?')
                 ssh = str(detail)
             except Exception as detail:
                 # Connecting failed (for whatever reason)
