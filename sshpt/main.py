@@ -67,7 +67,7 @@ def option_parse(options):
 def create_argument():
     usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
     parser = ArgumentParser(usage=usage)
-    
+
     parser.add_argument('-v', '--version', action='version', version=version.__version__)
     host_group = parser.add_mutually_exclusive_group(required=True)
     host_group.add_argument("-f", "--file", dest="hostfile", default=None, type=open,
@@ -109,6 +109,8 @@ def create_argument():
         help="Timeout (in seconds) before giving up on an SSH connection (default: 30)")
     parser.add_argument("-s", "--sudo", nargs="?", action="store", dest="sudo", default=False,
         help="Use sudo to execute the command (default: as root).")
+    parser.add_argument("--output-format", dest="output_format", default="csv",
+        help="Ouptut format")
 
     action_group = parser.add_mutually_exclusive_group(required=True)
     action_group.add_argument("-c", "--copy-file", dest="local_filepath", default=None, metavar="<file>",
