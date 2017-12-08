@@ -53,7 +53,7 @@ class OutputThread(GenericThread):
         self.output_format = output_format
 
     def printToStdout(self, output):
-        """Prints 'string' if self.verbose is set to True"""
+        """Prints output if self.verbose is set to True"""
         if self.verbose is True:
             if self.output_format == 'csv':
                 print(output)
