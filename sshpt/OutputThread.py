@@ -79,12 +79,11 @@ class OutputThread(GenericThread):
         else:
             queueObj['command_output'] = "\n".join(queueObj['command_output'])
         csv_out = "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"" % (queueObj['host'], queueObj['connection_result'], datetime.datetime.now(), queueObj['commands'], queueObj['command_output'])
+        json_out = {'host': queueObj['host'], 'connection_result': queueObj['connection_result'], 'timestamp': datetime.datetime.now(), 'commands': queueObj['commands'], 'command_output': queueObj['command_output']}
         self.printToStdout(csv_out)
-        if self.outfile is not None:
-            csv_out = "%s\n" % csv_out
-            output = open(self.outfile, 'a')
-            output.write(csv_out)
-            output.close()
+        if self.outfile:
+            with open(self.outfile, 'a') as output:
+                output.write("%s\n" % csv_out)
 
     def run(self):
         while not self.quitting:
