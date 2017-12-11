@@ -144,7 +144,7 @@ class SSHThread(GenericThread):
         Returns stdout (after command execution)"""
         host = ssh.get_host_keys().keys()[0]
         if sudo:
-            stdout, stderr = self.sudoExecute(transport=ssh, command=command, password=password, sudo=sudo)
+            stdout, stderr = self.sudoExecute(ssh=ssh, command=command, password=password, sudo=sudo)
         else:
             stdin, stdout, stderr = ssh.exec_command(command)
         command_output = stdout.readlines()
@@ -175,8 +175,6 @@ class SSHThread(GenericThread):
             connection_result = False
             command_output = ssh
             return connection_result, command_output
-
-        command_output = []
         if local_filepath:
             remote_filepath = remote_filepath.rstrip('/')
             local_short_filename = local_filepath.split("/")[-1] or "sshpt_temp"
@@ -188,37 +186,31 @@ class SSHThread(GenericThread):
                     command_output.append(self.executeCommand(ssh, "mv %s %s" % (temp_path, remote_fullpath), sudo, run_as, password))
                 else:
                     self.sftpPut(ssh, local_filepath, remote_fullpath)
+                if execute:
+                    # Make it executable (a+x in case we run as another user via sudo)
+                    chmod_command = "chmod a+x %s" % remote_fullpath
+                    self.executeCommand(ssh=ssh, command=chmod_command, sudo=sudo, password=password)
+                    # The command to execute is now the uploaded file
+                    commands = [remote_fullpath, ]
+                else:
+                    # We're just copying a file (no execute) so let's return it's details
+                    commands = ["ls -l %s" % remote_fullpath, ]
             except IOError as details:
                 # i.e. permission denied
                 # Make sure the error is included in the command output
                 command_output.append(str(details))
         try:
-            if execute:
-                # Make it executable (a+x in case we run as another user via sudo)
-                chmod_command = "chmod a+x %s" % remote_fullpath
-                self.executeCommand(transport=ssh, command=chmod_command, sudo=sudo, password=password)
-                # The command to execute is now the uploaded file
-                commands = [remote_fullpath, ]
-            else:
-                # We're just copying a file (no execute) so let's return it's details
-                commands = ["ls -l %s" % remote_fullpath, ]
-
             for command in commands:
                 # This makes a list of lists (each line of output in command_output is it's own item in the list)
-                command_output.append(self.executeCommand(transport=ssh, command=command, sudo=sudo, password=password))
-            elif commands is False and execute is False:
+                command_output.append(self.executeCommand(ssh=ssh, command=command, sudo=sudo, password=password))
+            if commands is False and execute is False:
                 # If we're not given anything to execute run the uptime command to make sure that we can execute *something*
-                command_output = self.executeCommand(transport=ssh, command='uptime', sudo=sudo, password=password)
+                command_output = self.executeCommand(ssh=ssh, command='uptime', sudo=sudo, password=password)
             if local_filepath and remove:
                 # Clean up/remove the file we just uploaded and executed
                 rm_command = "rm -f %s" % remote_fullpath
-                self.executeCommand(transport=ssh, command=rm_command, sudo=sudo, password=password)
-
-            command_count = 0
-            for output in command_output:
-                # Clean up the command output
-                command_output[command_count] = normalizeString(output)
-                command_count = command_count + 1
+                self.executeCommand(ssh=ssh, command=rm_command, sudo=sudo, password=password)
+            command_output = [normalizeString(output) for output in command_output]
         except Exception as detail:
             # Connection failed
             print (sys.exc_info())
