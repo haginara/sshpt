@@ -59,7 +59,7 @@ class SSHPowerTool(object):
 
     def run(self):
         if self.output_queue is None:
-            self.output_queue = startOutputThread(self.options.verbose, self.options.outfile)
+            self.output_queue = startOutputThread(self.options.verbose, self.options.outfile, self.options.output_format)
         # Start up the Output and SSH threads
         self.ssh_connect_queue = startSSHQueue(self.output_queue, self.options.max_threads)
         if not self.options.commands and not self.options.local_filepath:
