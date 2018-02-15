@@ -57,12 +57,10 @@ class Password(object):
     @staticmethod
     def encode(s, key='sshpt256'):
         enc = [chr((ord(s[i]) + ord(key[i % len(key)])) % 256) for i in range(len(s))]
-        enc_str = base64.urlsafe_b64encode("".join(enc).encode('utf-8'))
-        return enc_str
+        return enc
 
     @staticmethod
     def decode(s, key='sshpt256'):
-        s = base64.urlsafe_b64decode(s).decode('utf-8')
         dec = [chr(abs(ord(s[i]) - ord(key[i % len(key)])) % 256) for i in xrange(len(s))]
         return "".join(dec)
 

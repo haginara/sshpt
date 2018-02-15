@@ -43,7 +43,6 @@ except ImportError:
     sys.exit(1)
 #paramiko.util.log_to_file("debug.log")
 
-
 class SSHThread(GenericThread):
     """Connects to a host and optionally runs commands or copies a file over SFTP.
     Must be instanciated with:
@@ -84,7 +83,7 @@ class SSHThread(GenericThread):
                 self.output_queue.put(queueObj)
                 self.ssh_connect_queue.task_done()
         except Exception as e:
-            print ("Failed to run SSH Thread reason: %s" % e)
+            logger.error("Failed to run SSH Thread reason: %s" % e)
             self.quit()
 
     def create_key(self, key_file, key_passwd):
@@ -126,6 +125,7 @@ class SSHThread(GenericThread):
         filename = os.path.basename(local_filepath)
         if filename not in remote_filepath:
             remote_filepath = os.path.normpath(remote_filepath + "/")
+        logger.info("Put file from %s to %s", local_filepath, remote_filepath)
         sftp.put(local_filepath, remote_filepath)
 
     def sudoExecute(self, ssh, command, password, sudo):
@@ -175,17 +175,20 @@ class SSHThread(GenericThread):
             connection_result = False
             command_output = ssh
             return connection_result, command_output
+
         if local_filepath:
-            remote_filepath = remote_filepath.rstrip('/')
-            local_short_filename = local_filepath.split("/")[-1] or "sshpt_temp"
-            remote_fullpath = "%s/%s" % (remote_filepath, local_short_filename)
+            logger.info("sudo: %s, local_filepath: %s, remote_filepath: %s", sudo, local_filepath, remote_filepath)
+            local_short_filename = os.path.basename(local_filepath)
+            remote_fullpath = os.path.join(remote_filepath + '/', local_short_filename)
             try:
                 if sudo:
-                    temp_path = "/tmp/%s" % local_short_filename
+                    temp_path = os.path.join('/tmp/', local_short_filename)
+                    logger.info("Put the file temp first %s to %s", local_filepath, temp_path)
                     self.sftpPut(ssh, local_filepath, temp_path)
-                    command_output.append(self.executeCommand(ssh, "mv %s %s" % (temp_path, remote_fullpath), sudo, run_as, password))
+                    command_output.append(self.executeCommand(ssh, command="mv %s %s" % (temp_path, remote_fullpath), sudo=sudo, password=password))
                 else:
                     self.sftpPut(ssh, local_filepath, remote_fullpath)
+
                 if execute:
                     # Make it executable (a+x in case we run as another user via sudo)
                     chmod_command = "chmod a+x %s" % remote_fullpath
@@ -200,10 +203,13 @@ class SSHThread(GenericThread):
                 # Make sure the error is included in the command output
                 command_output.append(str(details))
         try:
-            for command in commands:
-                # This makes a list of lists (each line of output in command_output is it's own item in the list)
-                command_output.append(self.executeCommand(ssh=ssh, command=command, sudo=sudo, password=password))
-            if commands is False and execute is False:
+            remove = False
+            if commands:
+                for command in commands:
+                    # This makes a list of lists (each line of output in command_output is it's own item in the list)
+                    command_output.append(self.executeCommand(ssh=ssh, command=command, sudo=sudo, password=password))
+                    remove = True
+            if local_filepath is False and commands is False and execute is False:
                 # If we're not given anything to execute run the uptime command to make sure that we can execute *something*
                 command_output = self.executeCommand(ssh=ssh, command='uptime', sudo=sudo, password=password)
             if local_filepath and remove:

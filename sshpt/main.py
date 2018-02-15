@@ -30,7 +30,7 @@ else:
     from configparser import SafeConfigParser
 from argparse import ArgumentParser
 import logging
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.INFO)
 
 from . import version
 from .sshpt import SSHPowerTool
