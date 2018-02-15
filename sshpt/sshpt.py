@@ -75,10 +75,10 @@ class SSHPowerTool(object):
                     keyfile=self.options.keyfile, keypass=self.options.keypass,
                     timeout=self.options.timeout,
                     commands=self.options.commands,
-                    local_filepath=self.options.local_filepath, remote_filepath=self.options.local_filepath,
+                    local_filepath=self.options.local_filepath, remote_filepath=self.options.remote_filepath,
                     execute=self.options.execute, remove=self.options.remove, sudo=self.options.sudo, port=self.options.port)
                 self.ssh_connect_queue.put(queueObj)
-            sleep(0.1)
+            #sleep(0.1)
         # Wait until all jobs are done before exiting
         self.ssh_connect_queue.join()
 

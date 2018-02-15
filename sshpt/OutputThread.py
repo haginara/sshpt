@@ -31,6 +31,9 @@ if sys.version_info[0] == 3:
 else:
     import Queue
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class OutputThread(GenericThread):
     """
