@@ -32,6 +32,7 @@ setup(
         "Operating System :: Unix",
         "Environment :: Console",
         "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3",
         "Topic :: System :: Systems Administration",
     ],  # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
     packages=find_packages(exclude=EXCLUDE_FROM_PACKAGES),
