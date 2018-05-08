@@ -24,7 +24,7 @@ setup(
     author_email='haginara@gmail.com',
     url='https://github.com/haginara/sshpt',
     description=DESCRIPTION,
-    long_description=open('README.txt').read(),
+    long_description=open('README.md').read(),
     keywords='ssh administration parallel',
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -32,6 +32,7 @@ setup(
         "Operating System :: Unix",
         "Environment :: Console",
         "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3",
         "Topic :: System :: Systems Administration",
     ],  # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
     packages=find_packages(exclude=EXCLUDE_FROM_PACKAGES),

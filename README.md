@@ -1,11 +1,12 @@
 sshpt -- SSH Power Tool
 =======================
 
+[![PyPI version](https://badge.fury.io/py/sshpt.svg)](https://badge.fury.io/py/sshpt)
 [![Build Status](https://travis-ci.org/haginara/sshpt.svg?branch=1.3.7)](https://travis-ci.org/haginara/sshpt)
 
 Dan Mcdougall wrote sshpt(SSH Power Tool) and maintained it.
 
-This repo is a fork of sshpt 1.2.0
+This repo is a fork of sshpt 1.3.13
 
 Copyright (C) 2011 Dan McDougall.
 
@@ -48,21 +49,6 @@ Using Codes:
 sudo python setup.py install
 ```
 
-
-
-Version
--------
-
-## 1.3.7
-### bug fix
- - Fixed the bugs on test codes
- - Fixed the when use the keyfile to log in
- 
-### Enhanced features
- - Supports the comments on hostfile using '#'
- - Added the --hosts option to specify a host list on the command line
-
-
 Usage
 -----
 
@@ -80,6 +66,12 @@ optional arguments:
   -S, --stdin           Read hosts from standard input
   --hosts HOSTS         Specify a host list on the command line.
                         ex)--hosts="host1:host2:host3"
+  -i INI_FILE INI_FILE, --ini-file INI_FILE INI_FILE
+                        Configuration file with INI Format. ex)--ini-file
+                        path, server
+  -j JSON JSON, --json JSON JSON
+                        Configuration file with JSON Format. ex)--json path,
+                        server
   -k <file>, --key-file <file>
                         Location of the private key file
   -K <password>, --key-pass <password>
@@ -113,9 +105,10 @@ optional arguments:
   -t <seconds>, --timeout <seconds>
                         Timeout (in seconds) before giving up on an SSH
                         connection (default: 30)
-  -s, --sudo            Use sudo to execute the command (default: as root).
-  -U <username>, --sudouser <username>
-                        Run the command (via sudo) as this user.
+  -s [SUDO], --sudo [SUDO]
+                        Use sudo to execute the command (default: as root).
+  --output-format OUTPUT_FORMAT
+                        Ouptut format
   -c <file>, --copy-file <file>
                         Location of the file to copy to and optionally execute
                         (-x) on hosts.

@@ -25,10 +25,13 @@ import os
 import threading
 if sys.version_info[0] == 3:
     import queue as Queue
+    basestring = str
 else:
     import Queue
 import getpass
 import logging
+
+logger = logging.getLogger("sshpt")
 
 # Import 3rd party modules
 try:
@@ -39,7 +42,6 @@ except ImportError:
     print("Download it here: http://www.lag.net/paramiko/")
     sys.exit(1)
 #paramiko.util.log_to_file("debug.log")
-
 
 class SSHThread(GenericThread):
     """Connects to a host and optionally runs commands or copies a file over SFTP.
@@ -59,7 +61,6 @@ class SSHThread(GenericThread):
         queueObj['execute'] - Boolean
         queueObj['remove'] - Boolean
         queueObj['sudo'] - Boolean
-        queueObj['run_as'] - String: User to execute commands as (via sudo)
         queueObj['connection_result'] - String: 'SUCCESS'/'FAILED'
         queueObj['command_output'] - String: Textual output of commands after execution
     """
@@ -76,48 +77,13 @@ class SSHThread(GenericThread):
                 queueObj = self.ssh_connect_queue.get()
                 if queueObj == 'quit':
                     self.quit()
-
-                # These variable assignments are just here for readability further down
-                host = queueObj['host']
-                username = queueObj['username']
-                password = queueObj['password']
-                keyfile = queueObj['keyfile']
-                keypass = queueObj['keypass']
-                timeout = queueObj['timeout']
-                commands = queueObj['commands']
-                local_filepath = queueObj['local_filepath']
-                remote_filepath = queueObj['remote_filepath']
-                execute = queueObj['execute']
-                remove = queueObj['remove']
-                sudo = queueObj['sudo']
-                run_as = queueObj['run_as']
-                port = int(queueObj['port'])
-
-                success, command_output = self.attemptConnection(
-                    host,
-                    username,
-                    password,
-                    keyfile,
-                    keypass,
-                    timeout,
-                    commands,
-                    local_filepath,
-                    remote_filepath,
-                    execute,
-                    remove,
-                    sudo,
-                    run_as,
-                    port
-                )
-                if success:
-                    queueObj['connection_result'] = "SUCCESS"
-                else:
-                    queueObj['connection_result'] = "FAILED"
+                success, command_output = self.attemptConnection(**queueObj)
+                queueObj['connection_result'] = "SUCCESS" if success else "FAILED"
                 queueObj['command_output'] = command_output
                 self.output_queue.put(queueObj)
                 self.ssh_connect_queue.task_done()
-        except Exception as detail:
-            print (detail)
+        except Exception as e:
+            logger.error("Failed to run SSH Thread reason: %s" % e)
             self.quit()
 
     def create_key(self, key_file, key_passwd):
@@ -128,78 +94,68 @@ class SSHThread(GenericThread):
                 key_passwd = getpass.getpass("Enter passphrase for %s: " % key_file)
             key = paramiko.RSAKey.from_private_key_file(key_file, password=key_passwd)
         except Exception as detail:
-            print("Error: Create_key: ".format(detail))
+            logger.error("Error: Create_key: %s", detail)
         return key
 
     def paramikoConnect(self, host, username, password, timeout, port=22, key_file="", key_pass=""):
         """Connects to 'host' and returns a Paramiko transport object to use in further communications"""
         # Uncomment this line to turn on Paramiko debugging (good for troubleshooting why some servers report connection failures)
         #paramiko.util.log_to_file('paramiko.log')
-        key = None
         ssh = paramiko.SSHClient()
-        if key_file:
-            try:
-                #print 'KEY: {},{}'.format(key_file, key_pass)
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        logger.debug("paramikoConnect:connect, %s:%s", username, host)
+
+        try:
+            if key_file:
                 key = self.create_key(key_file, key_pass)
-                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(host, port=port, username=username, timeout=timeout, pkey=key)
-            except paramiko.SSHException as detail:
-                print('Could not read private key; bad password?')
-                ssh = str(detail)
-            except Exception as detail:
-                # Connecting failed (for whatever reason)
-                print(sys.exc_info())
-                print('Connecting failed (for whatever reason)')
-                ssh = str(detail)
-        else:
-            try:
-                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                #print("paramikoConnect:connect, {}:{}".format(username, host))
+            else:
                 ssh.connect(host, port=port, username=username, password=password, timeout=timeout)
-            except paramiko.SSHException as detail:
-                print ('Bad password?')
-                ssh = str(detail)
-            except Exception as detail:
-                # Connecting failed (for whatever reason)
-                print('Connecting failed (for whatever reason)')
-                ssh = str(detail)
+        except paramiko.SSHException as detail:
+            logger.error('Could not read private key; bad password?, %s', detail)
+            ssh = str(detail)
+        except Exception as detail:
+            logger.error('Connecting failed (for whatever reason: %s)', detail)
+            ssh = str(detail)
         return ssh
 
-    def sftpPut(self, transport, local_filepath, remote_filepath):
+    def sftpPut(self, ssh, local_filepath, remote_filepath):
         """Uses SFTP to transfer a local file (local_filepath) to a remote server at the specified path (remote_filepath) using the given Paramiko transport object."""
-        sftp = transport.open_sftp()
+        sftp = ssh.open_sftp()
         filename = os.path.basename(local_filepath)
         if filename not in remote_filepath:
             remote_filepath = os.path.normpath(remote_filepath + "/")
+        logger.info("Put file from %s to %s", local_filepath, remote_filepath)
         sftp.put(local_filepath, remote_filepath)
 
-    def sudoExecute(self, transport, command, password, run_as):
-        """Executes the given command via sudo as the specified user (run_as) using the given Paramiko transport object.
+    def sudoExecute(self, ssh, command, password, sudo):
+        """Executes the given command via sudo as the specified user (sudo) using the given Paramiko transport object.
         Returns stdout, stderr (after command execution)"""
-        stdin, stdout, stderr = transport.exec_command("sudo -S -u %s %s" % (run_as, command))
+        logger.debug("Run sudoExecute: %s, %s", sudo, command)
+        stdin, stdout, stderr = ssh.exec_command("sudo -S -u %s %s" % (sudo, command))
         if stdout.channel.closed is False:
             # If stdout is still open then sudo is asking us for a password
             stdin.write('%s\n' % password)
             stdin.flush()
         return stdout, stderr
 
-    def executeCommand(self, transport, command, sudo, run_as, password=None):
-        """Executes the given command via the specified Paramiko transport object.  Will execute as sudo if passed the necessary variables (sudo=True, password, run_as).
+    def executeCommand(self, ssh, command, sudo, password=None):
+        """Executes the given command via the specified Paramiko transport object.  Will execute as sudo if passed the necessary variables (sudo=True, password, sudo).
         Returns stdout (after command execution)"""
-        host = transport.get_host_keys().keys()[0]
+        host = ssh.get_host_keys().keys()[0]
         if sudo:
-            stdout, stderr = self.sudoExecute(transport=transport, command=command, password=password, run_as=run_as)
+            stdout, stderr = self.sudoExecute(ssh=ssh, command=command, password=password, sudo=sudo)
         else:
-            stdin, stdout, stderr = transport.exec_command(command)
+            stdin, stdout, stderr = ssh.exec_command(command)
         command_output = stdout.readlines()
         command_output = "".join(command_output)
 
         return command_output
 
-    def attemptConnection(self, host, username="", password="", keyfile="", keypass="", timeout=30, commands=False,
-        local_filepath=False, remote_filepath='/tmp', execute=False, remove=False, sudo=False, run_as='root', port=22):
+    def attemptConnection(self, host, username="", password="", keyfile="", keypass="", timeout=30, commands=[],
+        local_filepath=False, remote_filepath='/tmp', execute=False, remove=False, sudo=False, port=22):
         """Attempt to login to 'host' using 'username'/'password' and execute 'commands'.
-        Will excute commands via sudo if 'sudo' is set to True (as root by default) and optionally as a given user (run_as).
+        Will excute commands via sudo if 'sudo' is set to True (as root by default) and optionally as a given user (sudo).
         Returns connection_result as a boolean and command_output as a string."""
         # Connection timeout
         # Either False for no commnads or a list
@@ -213,70 +169,64 @@ class SSHThread(GenericThread):
 
         connection_result = True
         command_output = []
-
-        ssh = None
-        if host != "":
-            try:
-                ssh = self.paramikoConnect(host, username, password=password, timeout=timeout, port=port, key_file=keyfile, key_pass=keypass)
-                if isinstance(ssh, type("")):
-                    # If ssh is a string that means the connection failed and 'ssh' is the details as to why
-                    connection_result = False
-                    command_output = ssh
-                    return connection_result, command_output
-
-                command_output = []
-                if local_filepath:
-                    remote_filepath = remote_filepath.rstrip('/')
-                    local_short_filename = local_filepath.split("/")[-1] or "sshpt_temp"
-                    remote_fullpath = "%s/%s" % (remote_filepath, local_short_filename)
-                    try:
-                        if sudo:
-                            temp_path = "/tmp/%s" % local_short_filename
-                            self.sftpPut(ssh, local_filepath, temp_path)
-                            command_output.append(self.executeCommand(ssh, "mv %s %s" % (temp_path, remote_fullpath), sudo, run_as, password))
-                        else:
-                            self.sftpPut(ssh, local_filepath, remote_fullpath)
-                    except IOError as details:
-                        # i.e. permission denied
-                        # Make sure the error is included in the command output
-                        command_output.append(str(details))
-                    if execute:
-                        # Make it executable (a+x in case we run as another user via sudo)
-                        chmod_command = "chmod a+x %s" % remote_fullpath
-                        self.executeCommand(transport=ssh, command=chmod_command, sudo=sudo, run_as=run_as, password=password)
-                        # The command to execute is now the uploaded file
-                        commands = [remote_fullpath, ]
-                    else:
-                        # We're just copying a file (no execute) so let's return it's details
-                        commands = ["ls -l %s" % remote_fullpath, ]
-                if commands:
-                    for command in commands:
-                        # This makes a list of lists (each line of output in command_output is it's own item in the list)
-                        command_output.append(self.executeCommand(transport=ssh, command=command, sudo=sudo, run_as=run_as, password=password))
-                elif commands is False and execute is False:
-                    # If we're not given anything to execute run the uptime command to make sure that we can execute *something*
-                    command_output = self.executeCommand(transport=ssh, command='uptime', sudo=sudo, run_as=run_as, password=password)
-                if local_filepath and remove:
-                    # Clean up/remove the file we just uploaded and executed
-                    rm_command = "rm -f %s" % remote_fullpath
-                    self.executeCommand(transport=ssh, command=rm_command, sudo=sudo, run_as=run_as, password=password)
-
-                command_count = 0
-                for output in command_output:
-                    # Clean up the command output
-                    command_output[command_count] = normalizeString(output)
-                    command_count = command_count + 1
-            except Exception as detail:
-                # Connection failed
-                print (sys.exc_info())
-                print("Exception: %s" % detail)
-                connection_result = False
-                command_output = detail
-            finally:
-                if not isinstance(ssh, str):
-                    ssh.close()
+        ssh = self.paramikoConnect(host, username, password=password, timeout=timeout, port=port, key_file=keyfile, key_pass=keypass)
+        if isinstance(ssh, basestring):
+            # If ssh is a string that means the connection failed and 'ssh' is the details as to why
+            connection_result = False
+            command_output = ssh
             return connection_result, command_output
-        return "Host name is not correct", command_output
+
+        if local_filepath:
+            logger.info("sudo: %s, local_filepath: %s, remote_filepath: %s", sudo, local_filepath, remote_filepath)
+            local_short_filename = os.path.basename(local_filepath)
+            remote_fullpath = os.path.join(remote_filepath + '/', local_short_filename)
+            try:
+                if sudo:
+                    temp_path = os.path.join('/tmp/', local_short_filename)
+                    logger.info("Put the file temp first %s to %s", local_filepath, temp_path)
+                    self.sftpPut(ssh, local_filepath, temp_path)
+                    command_output.append(self.executeCommand(ssh, command="mv %s %s" % (temp_path, remote_fullpath), sudo=sudo, password=password))
+                else:
+                    self.sftpPut(ssh, local_filepath, remote_fullpath)
+
+                if execute:
+                    # Make it executable (a+x in case we run as another user via sudo)
+                    chmod_command = "chmod a+x %s" % remote_fullpath
+                    self.executeCommand(ssh=ssh, command=chmod_command, sudo=sudo, password=password)
+                    # The command to execute is now the uploaded file
+                    commands = [remote_fullpath, ]
+                else:
+                    # We're just copying a file (no execute) so let's return it's details
+                    commands = ["ls -l %s" % remote_fullpath, ]
+            except IOError as details:
+                # i.e. permission denied
+                # Make sure the error is included in the command output
+                command_output.append(str(details))
+        try:
+            remove = False
+            if commands:
+                for command in commands:
+                    # This makes a list of lists (each line of output in command_output is it's own item in the list)
+                    command_output.append(self.executeCommand(ssh=ssh, command=command, sudo=sudo, password=password))
+                    remove = True
+            if local_filepath is False and commands is False and execute is False:
+                # If we're not given anything to execute run the uptime command to make sure that we can execute *something*
+                command_output = self.executeCommand(ssh=ssh, command='uptime', sudo=sudo, password=password)
+            if local_filepath and remove:
+                # Clean up/remove the file we just uploaded and executed
+                rm_command = "rm -f %s" % remote_fullpath
+                self.executeCommand(ssh=ssh, command=rm_command, sudo=sudo, password=password)
+            command_output = [normalizeString(output) for output in command_output]
+        except Exception as detail:
+            # Connection failed
+            print (sys.exc_info())
+            print("Exception: %s" % detail)
+            connection_result = False
+            command_output = detail
+        finally:
+            if not isinstance(ssh, basestring):
+                ssh.close()
+        return connection_result, command_output
 
 
 def startSSHQueue(output_queue, max_threads):

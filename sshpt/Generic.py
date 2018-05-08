@@ -19,7 +19,12 @@
 #       http://www.gnu.org/licenses/gpl.html
 
 import re
+import sys
+from itertools import cycle
+import base64
 import threading
+if sys.version_info[0] == 3:
+    xrange = range
 
 
 ### ---- Private Functions ----
@@ -30,6 +35,34 @@ def normalizeString(string):
     srting = re.sub(r'(")', '""', string) # Convert double quotes to double double quotes (e.g. 'foo "bar" blah' becomes 'foo ""bar"" blah')
     return string
 
+
+class Password(object):
+    def __init__(self, s):
+        self.password = s
+
+    def __str__(self):
+        return self.password
+
+    def __repr__(self):
+        return self.__str__()
+
+    @property
+    def password(self):
+        return Password.decode(self.__password)
+
+    @password.setter
+    def password(self, p):
+        self.__password = Password.encode(p)
+
+    @staticmethod
+    def encode(s, key='sshpt256'):
+        enc = [chr((ord(s[i]) + ord(key[i % len(key)])) % 256) for i in range(len(s))]
+        return enc
+
+    @staticmethod
+    def decode(s, key='sshpt256'):
+        dec = [chr(abs(ord(s[i]) - ord(key[i % len(key)])) % 256) for i in xrange(len(s))]
+        return "".join(dec)
 
 class GenericThread(threading.Thread):
     """A baseline thread that includes the functions we want for all our threads so we don't have to duplicate code."""

@@ -31,18 +31,17 @@ ssh.run()
 
 # This is the simplest way of grabbing the data that sshpt returns.  The other way would be to write your own version of the OutputThread
 for host in results_queue.queue:
-    print "host: %s" % host['host']
-    print "command_output: %s" % host['command_output']
-    print "commands: %s" % host['commands']
+    print("host: %s" % host['host'])
+    print("command_output: %s" % host['command_output'])
+    print("commands: %s" % host['commands'])
     # ...and here's the rest of what you can use
-    #print "username: %s" % host['username']
-    #print "password: %s" % host['password'] # Do you REALLY this output to the console?
-    #print "timeout: %s" % host['timeout']
-    #print "local_filepath: %s" % host['local_filepath']
-    #print "remote_filepath: %s" % host['remote_filepath']
-    #print "execute: %s" % host['execute']
-    #print "remove: %s" % host['remove']
-    #print "sudo: %s" % host['sudo']
-    #print "run_as: %s" % host['run_as']
-    #print "port: %s" % host['port']
+    #print("username: %s" % host['username'])
+    #print ("password: %s" % host['password'] # Do you REALLY this output to the console?)
+    #print ("timeout: %s" % host['timeout'])
+    #print ("local_filepath: %s" % host['local_filepath'])
+    #print ("remote_filepath: %s" % host['remote_filepath'])
+    #print ("execute: %s" % host['execute'])
+    #print ("remove: %s" % host['remove'])
+    #print ("sudo: %s" % host['sudo'])
+    #print ("port: %s" % host['port'])
     print

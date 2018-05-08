@@ -22,12 +22,17 @@ from __future__ import print_function
 from .Generic import GenericThread
 
 import sys
+import pprint
+import json
 import datetime
 import threading
 if sys.version_info[0] == 3:
     import queue as Queue
 else:
     import Queue
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class OutputThread(GenericThread):
@@ -41,18 +46,27 @@ class OutputThread(GenericThread):
     verbose - Boolean: Whether or not we should output to stdout.
     outfile - String: Path to the file where we'll store results.
     """
-    def __init__(self, output_queue, verbose=True, outfile=None):
+    def __init__(self, output_queue, verbose=True, outfile=None, output_format='csv'):
         """Name ourselves and assign the variables we were instanciated with."""
         super(OutputThread, self).__init__(name="OutputThread")
         self.output_queue = output_queue
         self.verbose = verbose
         self.outfile = outfile
         self.quitting = False
+        self.output_format = output_format
 
-    def printToStdout(self, string):
-        """Prints 'string' if self.verbose is set to True"""
+    def printToStdout(self, output):
+        """Prints output if self.verbose is set to True"""
         if self.verbose is True:
-            print (string)
+            if self.output_format == 'csv':
+                print(output)
+            elif self.output_format == 'json':
+                pprint.pprint(output, width=100)
+                output = json.dumps(output)
+
+        if self.outfile:
+            with open(self.outfile, 'a') as f:
+                f.write("%s\n" % output)
 
     def writeOut(self, queueObj):
         """Write relevant queueObj information to stdout and/or to the outfile (if one is set)"""
@@ -67,9 +81,9 @@ class OutputThread(GenericThread):
         else:
             if len(queueObj['commands']) > 1:
                 # Only prepend 'index: ' if we were passed more than one command
-                queueObj['commands'] = "\n".join(["%s: sudo -u %s %s" % (index, queueObj['run_as'], command) for index, command in enumerate(queueObj['commands'])])
+                queueObj['commands'] = "\n".join(["%s: sudo -u %s %s" % (index, queueObj['sudo'], command) for index, command in enumerate(queueObj['commands'])])
             else:
-                queueObj['commands'] = "sudo -u %s %s" % (queueObj['run_as'], "".join(queueObj['commands']))
+                queueObj['commands'] = "sudo -u %s %s" % (queueObj['sudo'], "".join(queueObj['commands']))
         if isinstance(queueObj['command_output'], str):
             # Since it is a string we'll assume it is already formatted properly
             pass
@@ -78,13 +92,12 @@ class OutputThread(GenericThread):
             queueObj['command_output'] = "\n".join(["%s: %s" % (index, command) for index, command in enumerate(queueObj['command_output'])])
         else:
             queueObj['command_output'] = "\n".join(queueObj['command_output'])
-        csv_out = "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"" % (queueObj['host'], queueObj['connection_result'], datetime.datetime.now(), queueObj['commands'], queueObj['command_output'])
-        self.printToStdout(csv_out)
-        if self.outfile is not None:
-            csv_out = "%s\n" % csv_out
-            output = open(self.outfile, 'a')
-            output.write(csv_out)
-            output.close()
+        if self.output_format == 'csv':
+            output = "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"" % (queueObj['host'], queueObj['connection_result'], datetime.datetime.now(), queueObj['commands'], queueObj['command_output'])
+        elif self.output_format == 'json':
+            output = {'host': queueObj['host'], 'connection_result': queueObj['connection_result'], 'timestamp': str(datetime.datetime.now()), 'commands': queueObj['commands'], 'command_output': queueObj['command_output']}
+
+        self.printToStdout(output)
 
     def run(self):
         while not self.quitting:
@@ -95,12 +108,12 @@ class OutputThread(GenericThread):
             self.output_queue.task_done()
 
 
-def startOutputThread(verbose, outfile):
+def startOutputThread(verbose, outfile, output_format):
     """
     Starts up the OutputThread (which is used by SSHThreads to print/write out results).
     """
     output_queue = Queue.Queue()
-    output_thread = OutputThread(output_queue, verbose, outfile)
+    output_thread = OutputThread(output_queue, verbose, outfile, output_format)
     output_thread.setDaemon(True)
     output_thread.start()
     return output_queue
