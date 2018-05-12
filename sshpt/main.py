@@ -70,7 +70,7 @@ def create_argument():
 
     parser.add_argument('-v', '--version', action='version', version=version.__version__)
     host_group = parser.add_mutually_exclusive_group(required=True)
-    host_group.add_argument("-f", "--file", dest="hostfile", default=None, type=open,
+    host_group.add_argument("-f", "--conf-file", dest="hostfile", default=None, type=open,
         help="Location of the file containing the host list.")
     host_group.add_argument("-S", "--stdin", dest="stdin", default=False,
         action="store_true", help="Read hosts from standard input")
@@ -121,6 +121,9 @@ def create_argument():
 
     options = parser.parse_args()
     if options.hostfile:
+        """ All configuration option use this option -f, --conf-file
+            read_conf_file(filepath)
+        """
         options.hosts = options.hostfile.read()
     elif options.stdin:
         # if stdin wasn't piped in, prompt the user for it now

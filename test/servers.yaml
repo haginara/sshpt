@@ -1,0 +1,12 @@
+
+nn-host1:
+    host: 10.0.10.2
+    username: user
+    password: user
+    sudo: True
+
+nn-host2:
+    host: 10.0.10.101
+    username: user
+    password: user
+    sudo: True
