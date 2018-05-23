@@ -36,5 +36,4 @@ def read_conf_file(filepath):
         data = json.load(stream)
     else:
         raise Exception("No Support file type")
-
     return data
