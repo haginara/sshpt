@@ -21,13 +21,26 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
+import os
 import sys
+import fnmatch
+import json
+import yaml
+try:
+    from yaml import CLoader as YAMLoader
+except ImportError:
+    from yaml import Loader as YAMLoader
 import select
 import getpass
 if sys.version_info[0] == 2:
     from ConfigParser import SafeConfigParser
 else:
     from configparser import SafeConfigParser
+
+from .conf import read_conf_file
+from .conf import StdinAction
+from .conf import split_type
+
 import argparse
 from argparse import ArgumentParser
 import logging
@@ -39,6 +52,9 @@ from .SSHQueue import stopSSHQueue
 from .OutputThread import stopOutputThread
 
 from .Generic import Password
+
+logger = logging.getLogger(__name__)
+
 
 def _parse_hostfile(host):
     keys = ['host', 'username', 'password']
@@ -65,6 +81,157 @@ def option_parse(options):
     return 0
 
 
+class ServerConnection:
+    def __init__(self, host, port=22, username=None, sudo=False, password=None, keyfile=None, timeout=30):
+        self.host = host
+        self.port = port
+        self.username = username
+        self.sudo = sudo
+        self.password = password
+        self.timeout = timeout
+        self.subcommand = None
+        self.subcommand_args = None
+        self.commands = []
+        self.connect_data = {
+            'port': self.port,
+            'username': self.username,
+            'timeout': self.timeout
+        }
+        if keyfile:
+            self.connect_data['pkey'] = self.create_key(keyfile, self.password)
+        else:
+            self.connect_data['password'] = self.password
+
+    def create_key(self, key_file, key_pass=None):
+        try:
+            key = paramkio.RSAKey.from_private_key_file(key_file, password=key_pass)
+        except Exception as ex:
+            logger.error("Error: Create_key: %s", ex)
+        return key
+
+    def get_connection(self):
+        """Connects to 'host' and returns a Paramiko transport object to use in further communications"""
+        # Uncomment this line to turn on Paramiko debugging (good for troubleshooting why some servers report connection failures)
+        #paramiko.util.log_to_file('paramiko.log')
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            logger.debug("paramikoConnect:connect, %s:%s", self.host, self.username)
+            ssh.connect(self.host, **self.connect_data)
+        except paramiko.SSHException as detail:
+            raise Exception(detail)
+        except Exception as detail:
+            raise Exception(detail)
+        return ssh
+
+    def attemptConnection(self):
+        """Attempt to login to 'host' using 'username'/'password' and execute 'commands'.
+        Will excute commands via sudo if 'sudo' is set to True (as root by default) and optionally as a given user (sudo).
+        Returns connection_result as a boolean and command_output as a string."""
+        # Connection timeout
+        # Either False for no commnads or a list
+        # Local path of the file to SFTP
+        # Destination path where the file should end up on the host
+        # Whether or not the SFTP'd file should be executed after it is uploaded
+        # Whether or not the SFTP'd file should be removed after execution
+        # Whether or not sudo should be used for commands and file operations
+        # User to become when using sudo
+        # Port to use when connecting
+
+        connection_result = True
+        command_output = []
+        ssh = self.get_connection()
+
+        ## Check scp or cmd or both(?)
+        if local_filepath:
+            logger.info("sudo: %s, local_filepath: %s, remote_filepath: %s", sudo, local_filepath, remote_filepath)
+            local_short_filename = os.path.basename(local_filepath)
+            remote_fullpath = os.path.join(remote_filepath + '/', local_short_filename)
+            try:
+                if sudo:
+                    temp_path = os.path.join('/tmp/', local_short_filename)
+                    logger.info("Put the file temp first %s to %s", local_filepath, temp_path)
+                    self.sftpPut(ssh, local_filepath, temp_path)
+                    command_output.append(self.executeCommand(ssh, command="mv %s %s" % (temp_path, remote_fullpath), sudo=sudo, password=password))
+                else:
+                    self.sftpPut(ssh, local_filepath, remote_fullpath)
+
+                if execute:
+                    # Make it executable (a+x in case we run as another user via sudo)
+                    chmod_command = "chmod a+x %s" % remote_fullpath
+                    self.executeCommand(ssh=ssh, command=chmod_command, sudo=sudo, password=password)
+                    # The command to execute is now the uploaded file
+                    commands = [remote_fullpath, ]
+                else:
+                    # We're just copying a file (no execute) so let's return it's details
+                    commands = ["ls -l %s" % remote_fullpath, ]
+            except IOError as details:
+                # i.e. permission denied
+                # Make sure the error is included in the command output
+                command_output.append(str(details))
+        try:
+            remove = False
+            if commands:
+                for command in commands:
+                    # This makes a list of lists (each line of output in command_output is it's own item in the list)
+                    command_output.append(self.executeCommand(ssh=ssh, command=command, sudo=sudo, password=password))
+                    remove = True
+            if local_filepath is False and commands is False and execute is False:
+                # If we're not given anything to execute run the uptime command to make sure that we can execute *something*
+                command_output = self.executeCommand(ssh=ssh, command='uptime', sudo=sudo, password=password)
+            if local_filepath and remove:
+                # Clean up/remove the file we just uploaded and executed
+                rm_command = "rm -f %s" % remote_fullpath
+                self.executeCommand(ssh=ssh, command=rm_command, sudo=sudo, password=password)
+            command_output = [normalizeString(output) for output in command_output]
+        except Exception as detail:
+            # Connection failed
+            print (sys.exc_info())
+            print("Exception: %s" % detail)
+            connection_result = False
+            command_output = detail
+        finally:
+            if not isinstance(ssh, basestring):
+                ssh.close()
+        return connection_result, command_output
+
+    def sftpPut(self, ssh, local_filepath, remote_filepath):
+        """Uses SFTP to transfer a local file (local_filepath) to a remote server at the specified path (remote_filepath) using the given Paramiko transport object."""
+        sftp = ssh.open_sftp()
+        filename = os.path.basename(local_filepath)
+        if filename not in remote_filepath:
+            remote_filepath = os.path.normpath(remote_filepath + "/")
+        logger.info("Put file from %s to %s", local_filepath, remote_filepath)
+        sftp.put(local_filepath, remote_filepath)
+
+    def sudoExecute(self, ssh, command, password, sudo):
+        """Executes the given command via sudo as the specified user (sudo) using the given Paramiko transport object.
+        Returns stdout, stderr (after command execution)"""
+        logger.debug("Run sudoExecute: %s, %s", sudo, command)
+        stdin, stdout, stderr = ssh.exec_command("sudo -S -u %s %s" % (sudo, command))
+        if stdout.channel.closed is False:
+            # If stdout is still open then sudo is asking us for a password
+            stdin.write('%s\n' % password)
+            stdin.flush()
+        return stdout, stderr
+
+    def executeCommand(self, ssh, command, sudo, password=None):
+        """Executes the given command via the specified Paramiko transport object.  Will execute as sudo if passed the necessary variables (sudo=True, password, sudo).
+        Returns stdout (after command execution)"""
+        host = ssh.get_host_keys().keys()[0]
+        if sudo:
+            stdout, stderr = self.sudoExecute(ssh=ssh, command=command, password=password, sudo=sudo)
+        else:
+            stdin, stdout, stderr = ssh.exec_command(command)
+        command_output = stdout.readlines()
+        command_output = "".join(command_output)
+        return command_output
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(**data)
+
+
 class NamespaceOption(object):
     """
     host=host.get('host'),
@@ -79,170 +246,80 @@ class NamespaceOption(object):
     def __str__(self):
         return "%s" % self.__dict__
 
-    def get_servers(self):
-        if options.hostfile:
-            """ All configuration option use this option -f, --conf-file
-                read_conf_file(filepath)
-            """
-            options.hosts = options.hostfile.read()
-        elif options.stdin:
-            # if stdin wasn't piped in, prompt the user for it now
-            if not select.select([sys.stdin, ], [], [], 0.0)[0]:
-                sys.stdout.write("Enter list of hosts (one entry per line). ")
-                sys.stdout.write("Ctrl-D to end input.\n")
-            # in either case, read data from stdin
-            options.hosts = sys.stdin.read()
-        elif options.hosts:
-            options.hosts = options.hosts.split(":")
-        elif options.ini_file:
-            ini_config = SafeConfigParser(allow_no_value=True)
-            ini_config.read(options.ini_file[0])
-            options.hosts = [server[1] for server in ini_config.items(options.ini_file[1])]
-            if ini_config.has_section('Commands'):
-                for command in ini_config.items("Commands"):
-                    if options.commands == command[0]:
-                        options.commands = command[1]
-                        break
-        elif options.json:
-            pass
 
-class StdinAction(argparse.Action):
-    def __init__(self, option_strings, dest, const=None, default=None, required=False, help=None):
-        super(StdinAction, self).__init__(option_strings=option_strings,
-                                dest=dest,
-                                nargs=0,
-                                const=const,
-                                default=default,
-                                required=required,
-                                help=help,)
-        return
-    def __call__(self, parser, namespace, values, option_string=None):
-        # if stdin wasn't piped in, prompt the user for it now
-        print("Enter list of hosts (one entry per line). ")
-        print("Ctrl-D(or Ctrl-Z in Windows) to end input.")
-        lines = sys.stdin.readlines()
-        #lines = [line for line in lines]
-        """
-        if not select.select([sys.stdin, ], [], [], 0.0)[0]:
-            sys.stdout.write("Enter list of hosts (one entry per line). ")
-            sys.stdout.write("Ctrl-D to end input.\n")
-        # in either case, read data from stdin
-        setattr(namespace, self.hosts, sys.stdin.read())
-        """
-        setattr(namespace, self.dest, lines)
+class ArgParser(object):
+    def __init__(self):
+        usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
+        parser = ArgumentParser(usage=usage)
+        parser.add_argument('-v', '--version', action='version', version=version.__version__)
+        parser.add_argument("-f", "--conf-file", dest="hostfile", default='servers.yaml', type=read_conf_file,
+            help="Location of the file containing the host list.")
+        parser.add_argument("-T", "--threads", dest="max_threads", type=int, default=10, metavar="<int>",
+            help="Number of threads to spawn for simultaneous connection attempts [default: 10].")
+        parser.add_argument("group",
+            help="Group of servers that you want to command remotely")
+        parser.add_argument("-q", "--quiet", action="store_false", dest="verbose", default=True,
+            help="Don't print status messages to stdout (only print errors).")
+        parser.add_argument('subcommand', help='Subcommand to run')
 
-def create_argument():
-    usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
-    parser = ArgumentParser(usage=usage)
-    parser.add_argument('-v', '--version', action='version', version=version.__version__)
+        args, others = parser.parse_known_args()
+        if not hasattr(self, args.subcommand):
+            print('Unrecognized command')
+            parser.print_help()
+            sys.exit(1)
+        # use dispatch pattern to invoke method with same name
+        subcommand_args = getattr(self, args.subcommand)(others)
+        args.subcommand_args = subcommand_args
+        self.options = args
+        logger.info("%s", self.options)
 
-    host_group = parser.add_mutually_exclusive_group(required=True)
-    host_group.add_argument("-S", "--stdin", action=StdinAction,
-        help="Read hosts from standard input")
-    host_group.add_argument("-f", "--conf-file", dest="hostfile", default=None, type=open,
-        help="Location of the file containing the host list.")
-    host_group.add_argument("--hosts", dest='hosts', default=None,
-        help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
+    def scp(self, argument):
+        parser = argparse.ArgumentParser(description='SCP')
+        parser.add_argument("-c", "--copy-file", dest="local", default=None, metavar="<file>",
+            help="Location of the file to copy to and optionally execute (-x) on hosts.")
+        parser.add_argument("-d", "--dest", dest="remote", default="/tmp/", metavar="<path>",
+            help="Path where the file should be copied on the remote host (default: /tmp/).")
+        parser.add_argument("-x", "--execute", action="store_true", dest="execute", default=False,
+            help="Execute the copied file (just like executing a given command).")
+        parser.add_argument("-r", "--remove", action="store_true", dest="remove", default=False,
+            help="Remove (clean up) the SFTP'd file after execution.")
+        args = parser.parse_args(argument)
+        return args
 
-    auth_group = parser.add_argument_group("Auth Information")
-    auth_group.add_argument("-kf", "--key-file", dest="keyfile", default=None, metavar="<file>",
-        help="Location of the private key file")
-    auth_group.add_argument("-kp", "--key-pass", dest="keypass", metavar="<password>", default=None,
-        help="The password to be used when use the private key file).")
-    auth_group.add_argument("-a", "--authfile", dest="authfile", default=None, metavar="<file>",
-        help='Location of the file containing the credentials to be used for connections (format is "username:password").')
-    auth_group.add_argument("-u", "--username", dest="username", default='root', metavar="<username>",
-        help="The username to be used when connecting.  Defaults to the currently logged-in user.")
-    auth_group.add_argument("-p", "--password", dest="password", default=None, metavar="<password>",
-        help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).")
+    def cmd(self, argument):
+        parser = argparse.ArgumentParser(description='Command')
+        parser.add_argument("-o", "--outfile", dest="outfile", default=None, metavar="<file>",
+            help="Location of the file where the results will be saved.")
+        parser.add_argument("-of", "--output-format", dest="output_format", choices=['csv', 'json'], default="csv",
+            help="Ouptut format")
+        parser.add_argument('commands', metavar='Commands', type=str, nargs='*', default=False,
+            help='Commands')
+        args = parser.parse_args(argument)
+        return args
 
-    parser.add_argument("-T", "--threads", dest="max_threads", type=int, default=10, metavar="<int>",
-        help="Number of threads to spawn for simultaneous connection attempts [default: 10].")
-    parser.add_argument("-P", "--port", dest="port", type=int, default=22, metavar="<port>",
-        help="The port to be used when connecting.  Defaults to 22.")
-    parser.add_argument("-q", "--quiet", action="store_false", dest="verbose", default=True,
-        help="Don't print status messages to stdout (only print errors).")
-    parser.add_argument("-o", "--outfile", dest="outfile", default=None, metavar="<file>",
-        help="Location of the file where the results will be saved.")
+    def servers(self):
+        servers = self.hostfile['servers']
+        if self.group == '*':
+            servers = [ServerConnection.from_dict(server) for server in servers]
+        elif 'ip:' in self.group:
+            _ip = self.group[3:]
+            servers = [ServerConnection.from_dict(server) for server in servers if fnmatch.fnmatch(_ip, server['host'])]
+        else:
+            servers = [ServerConnection.from_dict(server) for server in servers if fnmatch.fnmatch(self.group, server)]
 
-    sftp_parser = parser.add_argument_group("sftp Information")
-    sftp_parser.add_argument("-d", "--dest", dest="remote_filepath", default="/tmp/", metavar="<path>",
-        help="Path where the file should be copied on the remote host (default: /tmp/).")
-    sftp_parser.add_argument("-x", "--execute", action="store_true", dest="execute", default=False,
-        help="Execute the copied file (just like executing a given command).")
-    sftp_parser.add_argument("-r", "--remove", action="store_true", dest="remove", default=False,
-        help="Remove (clean up) the SFTP'd file after execution.")
-
-    parser.add_argument("-t", "--timeout", dest="timeout", default=30, metavar="<seconds>",
-        help="Timeout (in seconds) before giving up on an SSH connection (default: 30)")
-    parser.add_argument("-s", "--sudo", nargs="?", action="store", dest="sudo", default=False,
-        help="Use sudo to execute the command (default: as root).")
-    parser.add_argument("-O", "--output-format", dest="output_format",
-        choices=['csv', 'json'], default="csv",
-        help="Ouptut format")
-
-    action_group = parser.add_mutually_exclusive_group(required=True)
-    action_group.add_argument("-c", "--copy-file", dest="local_filepath", default=None, metavar="<file>",
-        help="Location of the file to copy to and optionally execute (-x) on hosts.")
-    action_group.add_argument('commands', metavar='Commands', type=str, nargs='*', default=False,
-        help='Commands')
-
-    ns = NamespaceOption()
-    options = parser.parse_args(namespace=ns)
-    print("NameSpace: %s" % ns)
-    if options.hostfile:
-        """ All configuration option use this option -f, --conf-file
-            read_conf_file(filepath)
-        """
-        options.hosts = options.hostfile.read()
-    elif options.stdin:
-        # if stdin wasn't piped in, prompt the user for it now
-        if not select.select([sys.stdin, ], [], [], 0.0)[0]:
-            sys.stdout.write("Enter list of hosts (one entry per line). ")
-            sys.stdout.write("Ctrl-D to end input.\n")
-        # in either case, read data from stdin
-        options.hosts = sys.stdin.read()
-    elif options.hosts:
-        options.hosts = options.hosts.split(":")
-    elif options.ini_file:
-        ini_config = SafeConfigParser(allow_no_value=True)
-        ini_config.read(options.ini_file[0])
-        options.hosts = [server[1] for server in ini_config.items(options.ini_file[1])]
-        if ini_config.has_section('Commands'):
-            for command in ini_config.items("Commands"):
-                if options.commands == command[0]:
-                    options.commands = command[1]
-                    break
-    elif options.json:
-        pass
-
-    if options.authfile:
-        credentials = open(options.authfile).readline()
-        options.username, options.password = credentials.split(":")
-        # Get rid of trailing newline
-        options.password = Password(password.rstrip('\n'))
-    options.sudo = 'root' if options.sudo is None else options.sudo
-
-    # Get the username and password to use when checking hosts
-    if options.username is None:
-        options.username = raw_input('Username: ')
-    if options.keyfile and options.keypass is None:
-        options.keypass = Password(getpass.getpass('Passphrase: '))
-    elif options.password is None:
-        options.password = Password(getpass.getpass('Password: '))
-        if options.password == '':
-            print ('\nPlease type the password')
-            raise Exception('Please type the password')
-
-    options.hosts = _normalize_hosts(options.hosts)
-    return options
-
+        for server in servers:
+            server.subcommand = self.options.subcommand
+            server.subcommand_args = self.options.subcommand_args
+            yield server
 
 def main():
     """Main program function:  Grabs command-line arguments, starts up threads, and runs the program.
     """
     # Grab command line arguments and the command to run (if any)
-    options = create_argument()
+    args = ArgParser()
+    options = args.options
+    sys.exit(2)
+    #options = create_argument()
     if 0 != option_parse(options):
         return 2
     sshpt = SSHPowerTool(options)
@@ -253,7 +330,7 @@ def main():
         # Just to be safe we wait for the OutputThread to finish before moving on
         output_queue.join()
     except KeyboardInterrupt:
-        print ('caught KeyboardInterrupt, exiting...')
+        logger.error ('caught KeyboardInterrupt, exiting...')
         # Return code should be 1 if the user issues a SIGINT (control-C)
         # Clean up
         stopSSHQueue()

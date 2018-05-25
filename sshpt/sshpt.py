@@ -66,20 +66,9 @@ class SSHPowerTool(object):
             # Assume we're just doing a connection test
             self.options.commands = ['echo CONNECTION TEST', ]
 
-        for host in self.options.hosts:
+        for server in self.options.servers():
             if self.ssh_connect_queue.qsize() <= self.options.max_threads:
-                queueObj = dict(
-                    host=host.get('host'),
-                    username=host.get('username', self.options.username),
-                    password=host.get('password', self.options.password).password,
-                    keyfile=self.options.keyfile, keypass=self.options.keypass,
-                    timeout=self.options.timeout,
-                    commands=self.options.commands,
-                    local_filepath=self.options.local_filepath, remote_filepath=self.options.remote_filepath,
-                    execute=self.options.execute, remove=self.options.remove, sudo=self.options.sudo, port=self.options.port)
-                self.ssh_connect_queue.put(queueObj)
-            #sleep(0.1)
-        # Wait until all jobs are done before exiting
+                self.ssh_connect_queue.put(server)
         self.ssh_connect_queue.join()
 
         return self.output_queue
