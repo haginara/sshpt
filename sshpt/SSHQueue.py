@@ -59,19 +59,17 @@ class SSHThread(GenericThread):
         self.quitting = False
 
     def run(self):
-        try:
-            while not self.quitting:
-                queueObj = self.ssh_connect_queue.get()
-                if queueObj == 'quit':
-                    self.quit()
-                success, command_output = queueObj.attemptConnection()
-                queueObj['connection_result'] = "SUCCESS" if success else "FAILED"
-                queueObj['command_output'] = command_output
-                self.output_queue.put(queueObj)
-                self.ssh_connect_queue.task_done()
-        except Exception as e:
-            logger.error("Failed to run SSH Thread reason: %s" % e)
-            self.quit()
+        while not self.quitting:
+            queueObj = self.ssh_connect_queue.get()
+            logger.info("SSH Queue: %s", queueObj)
+            if queueObj == 'quit':
+                self.quit()
+            success, command_output = queueObj.attemptConnection()
+            queueObj.connection_result = "SUCCESS" if success else "FAILED"
+            queueObj.command_output = command_output
+            self.output_queue.put(queueObj)
+            self.ssh_connect_queue.task_done()
+
 
 def startSSHQueue(output_queue, max_threads):
     """Setup concurrent threads for testing SSH connectivity.  Must be passed a Queue (output_queue) for writing results."""
@@ -88,4 +86,5 @@ def stopSSHQueue():
     for t in threading.enumerate():
         if t.getName().startswith('SSHThread'):
             t.quit()
+    logger.info("Completed to stop SSHThreads")
     return True

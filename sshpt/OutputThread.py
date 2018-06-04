@@ -23,13 +23,21 @@ from .Generic import GenericThread
 
 import sys
 import pprint
+import yaml
+try:
+    from yaml import CLoader as Loader, CDumper as Dumper
+except ImportError:
+    from yaml import Loader, Dumper
+
+try:
+    import queue as Queue
+except ImportError:
+    import Queue
+
 import json
 import datetime
 import threading
-if sys.version_info[0] == 3:
-    import queue as Queue
-else:
-    import Queue
+
 
 import logging
 logger = logging.getLogger(__name__)
@@ -54,6 +62,7 @@ class OutputThread(GenericThread):
         self.outfile = outfile
         self.quitting = False
         self.output_format = output_format
+        self.output_list= []
 
     def printToStdout(self, output):
         """Prints output if self.verbose is set to True"""
@@ -61,43 +70,56 @@ class OutputThread(GenericThread):
             if self.output_format == 'csv':
                 print(output)
             elif self.output_format == 'json':
-                pprint.pprint(output, width=100)
-                output = json.dumps(output)
-
+                #pprint.pprint(output, width=100)
+                output = json.dumps(output, sort_keys=True, indent=2, separators=(',', ': '))
+                print(output)
+            elif self.output_format == 'yaml':
+                output = yaml.dump(output, default_flow_style=False, Dumper=Dumper)
+                print(output)
         if self.outfile:
             with open(self.outfile, 'a') as f:
                 f.write("%s\n" % output)
 
     def writeOut(self, queueObj):
         """Write relevant queueObj information to stdout and/or to the outfile (if one is set)"""
-        if queueObj['local_filepath']:
+        if queueObj.subcommand == 'scp':
             queueObj['commands'] = "sshpt: sftp.put %s %s:%s" % (queueObj['local_filepath'], queueObj['host'], queueObj['remote_filepath'])
-        elif queueObj['sudo'] is False:
-            if len(queueObj['commands']) > 1:
+            if queueObj.sudo is False:
+                if len(queueObj['commands']) > 1:
+                    # Only prepend 'index: ' if we were passed more than one command
+                    queueObj['commands'] = "\n".join(["%s: %s" % (index, command) for index, command in enumerate(queueObj['commands'])])
+                else:
+                    queueObj['commands'] = "".join(queueObj['commands'])
+        elif queueObj.subcommand == 'cmd':
+            if len(queueObj.commands) > 1:
                 # Only prepend 'index: ' if we were passed more than one command
-                queueObj['commands'] = "\n".join(["%s: %s" % (index, command) for index, command in enumerate(queueObj['commands'])])
+                queueObj.commands = "\n".join(["%s: sudo -u %s %s" % (index, queueObj.sudo, command) for index, command in enumerate(queueObj.commands)])
             else:
-                queueObj['commands'] = "".join(queueObj['commands'])
-        else:
-            if len(queueObj['commands']) > 1:
-                # Only prepend 'index: ' if we were passed more than one command
-                queueObj['commands'] = "\n".join(["%s: sudo -u %s %s" % (index, queueObj['sudo'], command) for index, command in enumerate(queueObj['commands'])])
-            else:
-                queueObj['commands'] = "sudo -u %s %s" % (queueObj['sudo'], "".join(queueObj['commands']))
-        if isinstance(queueObj['command_output'], str):
+                queueObj.commands = "sudo -u %s %s" % (queueObj.sudo, "".join(queueObj.commands))
+        if isinstance(queueObj.command_output, str):
             # Since it is a string we'll assume it is already formatted properly
             pass
-        elif len(queueObj['command_output']) > 1:
+        elif len(queueObj.command_output) > 1:
             # Only prepend 'index: ' if we were passed more than one command
-            queueObj['command_output'] = "\n".join(["%s: %s" % (index, command) for index, command in enumerate(queueObj['command_output'])])
+            queueObj.command_output = "\n".join(["%s: %s" % (index, command) for index, command in enumerate(queueObj.command_output)])
         else:
-            queueObj['command_output'] = "\n".join(queueObj['command_output'])
-        if self.output_format == 'csv':
-            output = "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"" % (queueObj['host'], queueObj['connection_result'], datetime.datetime.now(), queueObj['commands'], queueObj['command_output'])
-        elif self.output_format == 'json':
-            output = {'host': queueObj['host'], 'connection_result': queueObj['connection_result'], 'timestamp': str(datetime.datetime.now()), 'commands': queueObj['commands'], 'command_output': queueObj['command_output']}
+            queueObj.command_output = "\n".join(queueObj.command_output)
 
-        self.printToStdout(output)
+        if self.output_format == 'csv':
+            output = "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"" % (
+                queueObj.host, queueObj.connection_result, datetime.datetime.now(), queueObj.commands, queueObj.command_output)
+        elif self.output_format in ['json', 'yaml']:
+            output = {
+                queueObj.host: {
+                    'host': queueObj.host,
+                    'connection_result': queueObj.connection_result,
+                    'timestamp': str(datetime.datetime.now()),
+                    'commands': queueObj.commands,
+                    'command_output': queueObj.command_output
+                }
+            }
+        self.output_list.append(output)
+        #self.printToStdout(output)
 
     def run(self):
         while not self.quitting:
@@ -106,6 +128,9 @@ class OutputThread(GenericThread):
                 self.quit()
             self.writeOut(queueObj)
             self.output_queue.task_done()
+            logger.info("Completed-in-while")
+        logger.info("Completed")
+        self.printToStdout(self.output_list)
 
 
 def startOutputThread(verbose, outfile, output_format):
@@ -114,7 +139,7 @@ def startOutputThread(verbose, outfile, output_format):
     """
     output_queue = Queue.Queue()
     output_thread = OutputThread(output_queue, verbose, outfile, output_format)
-    output_thread.setDaemon(True)
+    #output_thread.setDaemon(True)
     output_thread.start()
     return output_queue
 
@@ -126,4 +151,5 @@ def stopOutputThread():
     for t in threading.enumerate():
         if t.getName().startswith('OutputThread'):
             t.quit()
+    logger.info("Completed to stop OutputThreads")
     return True
