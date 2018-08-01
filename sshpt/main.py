@@ -72,14 +72,8 @@ def create_argument():
     host_group = parser.add_mutually_exclusive_group(required=True)
     host_group.add_argument("-f", "--file", dest="hostfile", default=None, type=open,
         help="Location of the file containing the host list.")
-    host_group.add_argument("-S", "--stdin", dest="stdin", default=False,
-        action="store_true", help="Read hosts from standard input")
     host_group.add_argument("--hosts", dest='hosts', default=None,
         help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
-    host_group.add_argument("-i", "--ini-file", default=None, nargs=2,
-        help="Configuration file with INI Format. ex)--ini-file path, server")
-    host_group.add_argument("-j", "--json", default=None, nargs=2,
-        help="Configuration file with JSON Format. ex)--json path, server")
 
     parser.add_argument("-k", "--key-file", dest="keyfile", default=None, metavar="<file>",
         help="Location of the private key file")
@@ -120,29 +114,10 @@ def create_argument():
         help='Commands')
 
     options = parser.parse_args()
-    if options.hostfile:
-        options.hosts = options.hostfile.read()
-    elif options.stdin:
-        # if stdin wasn't piped in, prompt the user for it now
-        if not select.select([sys.stdin, ], [], [], 0.0)[0]:
-            sys.stdout.write("Enter list of hosts (one entry per line). ")
-            sys.stdout.write("Ctrl-D to end input.\n")
-        # in either case, read data from stdin
-        options.hosts = sys.stdin.read()
-    elif options.hosts:
-        options.hosts = options.hosts.split(":")
-    elif options.ini_file:
-        ini_config = SafeConfigParser(allow_no_value=True)
-        ini_config.read(options.ini_file[0])
-        options.hosts = [server[1] for server in ini_config.items(options.ini_file[1])]
-        if ini_config.has_section('Commands'):
-            for command in ini_config.items("Commands"):
-                if options.commands == command[0]:
-                    options.commands = command[1]
-                    break
-    elif options.json:
-        pass
 
+    elif options.host_path:
+        options.host = read_hosts(options.host_path)
+    
     if options.authfile:
         credentials = open(options.authfile).readline()
         options.username, options.password = credentials.split(":")
