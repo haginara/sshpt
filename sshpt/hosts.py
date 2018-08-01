@@ -1,3 +1,5 @@
+import sys
+import os
 import json
 import yaml
 if sys.version_info[0] == 2:
@@ -25,9 +27,6 @@ def normalize_hosts(hosts):
 def load_json(path):
     data = open(path, 'r').read()
     data = json.loads(data)
-    
-
-
 
 
 def load_yaml(path):
@@ -37,13 +36,10 @@ def load_yaml(path):
 def load_ini(path):
     ini_config = SafeConfigParser(allow_no_value=True)
     ini_config.read(path)
-    options.hosts = [server[1] for server in ini_config.items(path)]
-    if ini_config.has_section('Commands'):
-        for command in ini_config.items("Commands"):
-            if options.commands == command[0]:
-                options.commands = command[1]
-                break
+    hosts = [server[1] for server in ini_config.items(path)]
 
+    return hosts
+    
 
 def read_hosts(host_path):
     if ',' in host_path:

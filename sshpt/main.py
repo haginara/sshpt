@@ -65,15 +65,14 @@ def option_parse(options):
 
 
 def create_argument():
-    usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
+    usage = 'usage: sshpt [options] <host> "[command1]" "[command2]" ...'
     parser = ArgumentParser(usage=usage)
-
     parser.add_argument('-v', '--version', action='version', version=version.__version__)
+
     host_group = parser.add_mutually_exclusive_group(required=True)
-    host_group.add_argument("-f", "--file", dest="hostfile", default=None, type=open,
-        help="Location of the file containing the host list.")
-    host_group.add_argument("--hosts", dest='hosts', default=None,
-        help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
+    host_group.add_argument("-f", "--hosts", dest="host_path", default=None,
+        help="Location of the file containing the host list."\
+        "Specify a host list on the command line. ex)--hosts=host1,host2,host3")
 
     parser.add_argument("-k", "--key-file", dest="keyfile", default=None, metavar="<file>",
         help="Location of the private key file")
@@ -113,7 +112,7 @@ def create_argument():
     action_group.add_argument('commands', metavar='Commands', type=str, nargs='*', default=False,
         help='Commands')
 
-    options = parser.parse_args()
+    options = parser.parse_args(sys.argv)
 
     elif options.host_path:
         options.host = read_hosts(options.host_path)

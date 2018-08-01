@@ -1,2 +1,3 @@
 paramiko>=1.10,<2.0
 pyinstaller
+pyyaml
