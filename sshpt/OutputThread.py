@@ -104,8 +104,10 @@ class OutputThread(GenericThread):
             queueObj = self.output_queue.get()
             if queueObj == "quit":
                 self.quit()
+                break
             self.writeOut(queueObj)
             self.output_queue.task_done()
+        logger.info("Completed to run OutputThread: %d", self.output_queue.qsize())
 
 
 def startOutputThread(verbose, outfile, output_format):

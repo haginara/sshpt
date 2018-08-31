@@ -21,10 +21,12 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
+from ._compat import PY2, PY3
+from ._compat import input
 import sys
 import select
 import getpass
-if sys.version_info[0] == 2:
+if PY2:
     from ConfigParser import SafeConfigParser
 else:
     from configparser import SafeConfigParser
@@ -63,8 +65,15 @@ def option_parse(options):
         return 2
     return 0
 
-
 def create_argument():
+    """
+        sshpt {{--hosts|-f|-S|-i|-j}} {{host}}  {{-k|-K}} {{options}} {{Action:cmd|scp}}
+            Action:
+                cmd:
+                    {{}}
+                scp:
+                    {{}}
+    """
     usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
     parser = ArgumentParser(usage=usage)
 
@@ -87,39 +96,46 @@ def create_argument():
         help="The password to be used when use the private key file).")
     parser.add_argument("-o", "--outfile", dest="outfile", default=None, metavar="<file>",
         help="Location of the file where the results will be saved.")
+    parser.add_argument("-O", "--output-format", dest="output_format",
+        choices=['csv', 'json'], default="csv",
+        help="Ouptut format")
     parser.add_argument("-a", "--authfile", dest="authfile", default=None, metavar="<file>",
         help='Location of the file containing the credentials to be used for connections (format is "username:password").')
+
     parser.add_argument("-T", "--threads", dest="max_threads", type=int, default=10, metavar="<int>",
         help="Number of threads to spawn for simultaneous connection attempts [default: 10].")
+    parser.add_argument("-q", "--quiet", action="store_false", dest="verbose", default=True,
+        help="Don't print status messages to stdout (only print errors).")
     parser.add_argument("-P", "--port", dest="port", type=int, default=22, metavar="<port>",
         help="The port to be used when connecting.  Defaults to 22.")
     parser.add_argument("-u", "--username", dest="username", default='root', metavar="<username>",
         help="The username to be used when connecting.  Defaults to the currently logged-in user.")
     parser.add_argument("-p", "--password", dest="password", default=None, metavar="<password>",
         help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).")
-    parser.add_argument("-q", "--quiet", action="store_false", dest="verbose", default=True,
-        help="Don't print status messages to stdout (only print errors).")
-    parser.add_argument("-d", "--dest", dest="remote_filepath", default="/tmp/", metavar="<path>",
-        help="Path where the file should be copied on the remote host (default: /tmp/).")
-    parser.add_argument("-x", "--execute", action="store_true", dest="execute", default=False,
-        help="Execute the copied file (just like executing a given command).")
-    parser.add_argument("-r", "--remove", action="store_true", dest="remove", default=False,
-        help="Remove (clean up) the SFTP'd file after execution.")
     parser.add_argument("-t", "--timeout", dest="timeout", default=30, metavar="<seconds>",
         help="Timeout (in seconds) before giving up on an SSH connection (default: 30)")
-    parser.add_argument("-s", "--sudo", nargs="?", action="store", dest="sudo", default=False,
-        help="Use sudo to execute the command (default: as root).")
-    parser.add_argument("-O", "--output-format", dest="output_format",
-        choices=['csv', 'json'], default="csv",
-        help="Ouptut format")
-
-    action_group = parser.add_mutually_exclusive_group(required=True)
-    action_group.add_argument("-c", "--copy-file", dest="local_filepath", default=None, metavar="<file>",
+   
+    action_parsers = parser.add_subparsers(title='Available actions', dest='action')
+    scp_parser = action_parsers.add_parser("scp")
+    #scp_parser.set_defaults(func=SCPAction())
+    scp_parser.add_argument("-c", "--copy-file", required=True, dest="local_filepath", default=None, metavar="<file>",
         help="Location of the file to copy to and optionally execute (-x) on hosts.")
-    action_group.add_argument('commands', metavar='Commands', type=str, nargs='*', default=False,
+    scp_parser.add_argument("-d", "--dest", required=True, dest="remote_filepath", default="/tmp/", metavar="<path>",
+        help="Path where the file should be copied on the remote host (default: /tmp/).")
+    scp_parser.add_argument("-x", "--execute", action="store_true", dest="execute", default=False,
+        help="Execute the copied file (just like executing a given command).")
+    scp_parser.add_argument("-r", "--remove", action="store_true", dest="remove", default=False,
+        help="Remove (clean up) the SFTP'd file after execution.")
+    scp_parser.add_argument("-s", "--sudo", nargs="?", action="store", dest="sudo", default=False,
+        help="Use sudo to execute the command (default: as root).")
+
+    cmd_parser = action_parsers.add_parser("cmd")
+    cmd_parser.add_argument("-s", "--sudo", nargs="?", action="store", dest="sudo", default=False,
+        help="Use sudo to execute the command (default: as root).")
+    cmd_parser.add_argument('commands', metavar='Commands', type=str, nargs='*', default=False,
         help='Commands')
 
-    options = parser.parse_args()
+    options, args = parser.parse_known_args()
     if options.hostfile:
         options.hosts = options.hostfile.read()
     elif options.stdin:
@@ -147,12 +163,13 @@ def create_argument():
         credentials = open(options.authfile).readline()
         options.username, options.password = credentials.split(":")
         # Get rid of trailing newline
-        options.password = Password(password.rstrip('\n'))
+        options.password = Password(options.password.rstrip('\n'))
     options.sudo = 'root' if options.sudo is None else options.sudo
 
     # Get the username and password to use when checking hosts
     if options.username is None:
-        options.username = raw_input('Username: ')
+        options.username = input('Username: ')
+
     if options.keyfile and options.keypass is None:
         options.keypass = Password(getpass.getpass('Passphrase: '))
     elif options.password is None:
@@ -160,6 +177,8 @@ def create_argument():
         if options.password == '':
             print ('\nPlease type the password')
             raise Exception('Please type the password')
+    elif options.password:
+        options.password = Password(options.password)
 
     options.hosts = _normalize_hosts(options.hosts)
     return options

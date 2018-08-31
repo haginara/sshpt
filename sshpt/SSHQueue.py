@@ -77,11 +77,15 @@ class SSHThread(GenericThread):
                 queueObj = self.ssh_connect_queue.get()
                 if queueObj == 'quit':
                     self.quit()
+                logger.info("Command to %s", queueObj.get('host'))
                 success, command_output = self.attemptConnection(**queueObj)
                 queueObj['connection_result'] = "SUCCESS" if success else "FAILED"
                 queueObj['command_output'] = command_output
+                logger.info("Completed to run on %s", queueObj.get('host'))
                 self.output_queue.put(queueObj)
                 self.ssh_connect_queue.task_done()
+            logger.info("SSH command has been completed")
+            self.output_queue.put("quit")
         except Exception as e:
             logger.error("Failed to run SSH Thread reason: %s" % e)
             self.quit()
@@ -135,6 +139,7 @@ class SSHThread(GenericThread):
         stdin, stdout, stderr = ssh.exec_command("sudo -S -u %s %s" % (sudo, command))
         if stdout.channel.closed is False:
             # If stdout is still open then sudo is asking us for a password
+            logger.info("stdout is still open")
             stdin.write('%s\n' % password)
             stdin.flush()
         return stdout, stderr
@@ -203,12 +208,10 @@ class SSHThread(GenericThread):
                 # Make sure the error is included in the command output
                 command_output.append(str(details))
         try:
-            remove = False
             if commands:
                 for command in commands:
                     # This makes a list of lists (each line of output in command_output is it's own item in the list)
                     command_output.append(self.executeCommand(ssh=ssh, command=command, sudo=sudo, password=password))
-                    remove = True
             if local_filepath is False and commands is False and execute is False:
                 # If we're not given anything to execute run the uptime command to make sure that we can execute *something*
                 command_output = self.executeCommand(ssh=ssh, command='uptime', sudo=sudo, password=password)
@@ -219,8 +222,7 @@ class SSHThread(GenericThread):
             command_output = [normalizeString(output) for output in command_output]
         except Exception as detail:
             # Connection failed
-            print (sys.exc_info())
-            print("Exception: %s" % detail)
+            logger.error("%s", detail, exc_info=True)
             connection_result = False
             command_output = detail
         finally:

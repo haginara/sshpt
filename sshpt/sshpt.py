@@ -62,22 +62,26 @@ class SSHPowerTool(object):
             self.output_queue = startOutputThread(self.options.verbose, self.options.outfile, self.options.output_format)
         # Start up the Output and SSH threads
         self.ssh_connect_queue = startSSHQueue(self.output_queue, self.options.max_threads)
-        if not self.options.commands and not self.options.local_filepath:
+        if not 'commands' in self.options:# and 'local_filepath' in self.options:
             # Assume we're just doing a connection test
             self.options.commands = ['echo CONNECTION TEST', ]
 
         for host in self.options.hosts:
-            if self.ssh_connect_queue.qsize() <= self.options.max_threads:
-                queueObj = dict(
-                    host=host.get('host'),
-                    username=host.get('username', self.options.username),
-                    password=host.get('password', self.options.password).password,
-                    keyfile=self.options.keyfile, keypass=self.options.keypass,
-                    timeout=self.options.timeout,
-                    commands=self.options.commands,
-                    local_filepath=self.options.local_filepath, remote_filepath=self.options.remote_filepath,
-                    execute=self.options.execute, remove=self.options.remove, sudo=self.options.sudo, port=self.options.port)
-                self.ssh_connect_queue.put(queueObj)
+            queueObj = dict(
+                host=host.get('host'),
+                port=self.options.port,
+                username=host.get('username', self.options.username),
+                password=host.get('password', self.options.password).password,
+                keyfile=self.options.keyfile, keypass=self.options.keypass,
+                timeout=self.options.timeout,
+                commands=self.options.commands,
+                local_filepath= self.options.local_filepath if 'local_filepath' in self.options else None,
+                remote_filepath=self.options.remote_filepath if 'remote_filepath' in self.options else None,
+                execute=self.options.execute if 'execute' in self.options else None,
+                remove=self.options.remove if 'remove' in self.options else None,
+                sudo=self.options.sudo if 'sudo' in self.options else None)
+            self.ssh_connect_queue.put(queueObj)
+        logger.info("sshQueue len: %d", self.ssh_connect_queue.qsize())
             #sleep(0.1)
         # Wait until all jobs are done before exiting
         self.ssh_connect_queue.join()
