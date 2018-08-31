@@ -42,30 +42,6 @@ from .OutputThread import stopOutputThread
 
 from .Generic import Password
 
-def _parse_hostfile(host):
-    keys = ['host', 'username', 'password']
-    values = host.split(":")
-    hosts = dict(zip(keys, values))
-    hosts['password'] = Password(hosts['password'])
-    return hosts
-
-
-def _normalize_hosts(hosts):
-    if hosts is None:
-        return []
-    if isinstance(hosts, str):
-        hosts = filter(lambda h: (not h.startswith("#") and h != ""), hosts.splitlines())
-        hosts = [host.strip() for host in hosts]
-    return [_parse_hostfile(host) if ':' in host else {'host': host} for host in hosts]
-
-
-def option_parse(options):
-    if options.outfile is None and options.verbose is False:
-        print("Error: You have not specified any mechanism to output results.")
-        print("Please don't use quite mode (-q) without an output file (-o <file>).")
-        return 2
-    return 0
-
 def create_argument():
     """
         sshpt [host_gruop] [credential]
@@ -104,10 +80,12 @@ def create_argument():
         help='Specify a host list on the command line. ex)--hosts="host1,host2,host3"')
     host_group.add_argument('-S', "--server-file", dest='server_file',
         help='Server file ahs list of servers and information to connect to')
+    parser.add_argument('hosts')
     parser.add_argument("-u", "--username", dest="username", default='root', metavar="<username>",
         help="The username to be used when connecting.  Defaults to the currently logged-in user.")
     parser.add_argument("-p", "--password", dest="password", default=None, metavar="<password>",
         help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).")
+    parser.add_argument("--use-password", action='store_true')
     parser.add_argument("-k", "--key-file", dest="keyfile", default=None, metavar="<file>",
         help="Location of the private key file")
     parser.add_argument("-K", "--key-pass", dest="keypass", metavar="<password>", default=None,
@@ -149,25 +127,6 @@ def create_argument():
 
     options, args = parser.parse_known_args()
 
-    if options.hosts:
-        options.hosts = options.hosts.split(":")
-    elif options.server_file:
-        ini_config = SafeConfigParser(allow_no_value=True)
-        ini_config.read(options.ini_file[0])
-        options.hosts = [server[1] for server in ini_config.items(options.ini_file[1])]
-        if ini_config.has_section('Commands'):
-            for command in ini_config.items("Commands"):
-                if options.commands == command[0]:
-                    options.commands = command[1]
-                    break
-    elif options.json:
-        pass
-
-    if options.authfile:
-        credentials = open(options.authfile).readline()
-        options.username, options.password = credentials.split(":")
-        # Get rid of trailing newline
-        options.password = Password(options.password.rstrip('\n'))
     options.sudo = 'root' if options.sudo is None else options.sudo
 
     # Get the username and password to use when checking hosts
@@ -176,15 +135,42 @@ def create_argument():
 
     if options.keyfile and options.keypass is None:
         options.keypass = Password(getpass.getpass('Passphrase: '))
-    elif options.password is None:
+    
+    if options.password:
+        options.password = Password(options.password)
+    elif options.use_password:
         options.password = Password(getpass.getpass('Password: '))
         if options.password == '':
             print ('\nPlease type the password')
             raise Exception('Please type the password')
-    elif options.password:
-        options.password = Password(options.password)
+    else:
+        options.password = ""
 
-    options.hosts = _normalize_hosts(options.hosts)
+    if options.hosts:
+        hosts = []
+        for host in options.hosts.split(","):
+            hosts.append(
+                {'host': host, 'port': options.port, 'username': options.username, 'password': Password(options.password), 'keyfile': options.keyfile, 'keypass':options.keypass}
+            )
+        options.hosts = hosts
+    if options.server_file:
+        with open(options.server_file, 'r') as f:
+            hosts_data = yaml.load(f.read())
+            if options.hosts[0]['host'] == '*':
+                options.hosts = [hosts_data[alias] for alias in hosts_data]
+            else:
+                hosts = []
+                for alias in hosts_data:
+                    for host in options.hosts:
+                        if alias == host['host']:
+                            hosts_data[alias]['password'] = Password(hosts_data[alias]['password'])
+                            host.update(hosts_data[alias])
+                            hosts.append(host)
+                options.hosts = hosts
+    if options.outfile is None and options.verbose is False:
+        print("Error: You have not specified any mechanism to output results.")
+        print("Please don't use quite mode (-q) without an output file (-o <file>).")
+        raise Exception
     return options
 
 
@@ -193,8 +179,6 @@ def main():
     """
     # Grab command line arguments and the command to run (if any)
     options = create_argument()
-    if 0 != option_parse(options):
-        return 2
     sshpt = SSHPowerTool(options)
     # This wierd little sequence of loops allows us to hit control-C
     # in the middle of program execution and get immediate results

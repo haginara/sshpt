@@ -69,10 +69,10 @@ class SSHPowerTool(object):
         for host in self.options.hosts:
             queueObj = dict(
                 host=host.get('host'),
-                port=self.options.port,
+                port=host.get('port'),
                 username=host.get('username', self.options.username),
                 password=host.get('password', self.options.password).password,
-                keyfile=self.options.keyfile, keypass=self.options.keypass,
+                keyfile=host.get('keyfile'), keypass=host.get('keypass'),
                 timeout=self.options.timeout,
                 commands=self.options.commands,
                 local_filepath= self.options.local_filepath if 'local_filepath' in self.options else None,
