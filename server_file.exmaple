@@ -1,0 +1,25 @@
+{{ alias }}:
+    host: {{ host }}
+    port: {{ port }}
+    username: {{ username }}
+    password: {{ password }}
+    keyfile: {{ keyfile }}
+    key_pass: {{ key_pass }}
+
+{{ alias }}: {
+    "host": {{ host }},
+    "port": {{ port }},
+    "username": {{ username }},
+    "password": {{ password }},
+    "keyfile": {{ keyfile }},
+    "key_pass": {{ key_pass }}
+}
+
+
+[{{ alias }}]
+host={{ host }}
+port={{ port }}
+username={{ username }}
+password={{ password }}
+keyfile={{ keyfile }}
+key_pass={{ key_pass }}

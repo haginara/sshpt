@@ -67,7 +67,26 @@ def option_parse(options):
 
 def create_argument():
     """
-        sshpt {{--hosts|-f|-S|-i|-j}} {{host}}  {{-k|-K}} {{options}} {{Action:cmd|scp}}
+        sshpt [host_gruop] [credential]
+            host_group:
+                [host_option] [host]
+                host_options:
+                    {{--hosts|-f|-S|-i|-j}}
+                host:
+                    {{host}}
+            credential:
+                [username] [secret]
+                username:
+                    {{username}}
+                secret:
+                    [password|keyfile(keepass)]
+                    password:
+                        -p
+                    keyfile:
+                        -k
+                        -K
+
+                {{-k|-K}} {{options}} {{Action:cmd|scp}}
             Action:
                 cmd:
                     {{}}
@@ -78,29 +97,26 @@ def create_argument():
     parser = ArgumentParser(usage=usage)
 
     parser.add_argument('-v', '--version', action='version', version=version.__version__)
-    host_group = parser.add_mutually_exclusive_group(required=True)
-    host_group.add_argument("-f", "--file", dest="hostfile", default=None, type=open,
-        help="Location of the file containing the host list.")
-    host_group.add_argument("-S", "--stdin", dest="stdin", default=False,
-        action="store_true", help="Read hosts from standard input")
-    host_group.add_argument("--hosts", dest='hosts', default=None,
-        help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
-    host_group.add_argument("-i", "--ini-file", default=None, nargs=2,
-        help="Configuration file with INI Format. ex)--ini-file path, server")
-    host_group.add_argument("-j", "--json", default=None, nargs=2,
-        help="Configuration file with JSON Format. ex)--json path, server")
 
+    host_group = parser.add_mutually_exclusive_group(required=True)
+    host_group.add_argument("-H", "--hosts", dest='hosts', default=None,
+        help='Specify a host list on the command line. ex)--hosts="host1,host2,host3"')
+    host_group.add_argument('-S', "--server-file", dest='server_file',
+        help='Server file ahs list of servers and information to connect to')
+    parser.add_argument("-u", "--username", dest="username", default='root', metavar="<username>",
+        help="The username to be used when connecting.  Defaults to the currently logged-in user.")
+    parser.add_argument("-p", "--password", dest="password", default=None, metavar="<password>",
+        help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).")
     parser.add_argument("-k", "--key-file", dest="keyfile", default=None, metavar="<file>",
         help="Location of the private key file")
     parser.add_argument("-K", "--key-pass", dest="keypass", metavar="<password>", default=None,
         help="The password to be used when use the private key file).")
+
     parser.add_argument("-o", "--outfile", dest="outfile", default=None, metavar="<file>",
         help="Location of the file where the results will be saved.")
     parser.add_argument("-O", "--output-format", dest="output_format",
         choices=['csv', 'json'], default="csv",
         help="Ouptut format")
-    parser.add_argument("-a", "--authfile", dest="authfile", default=None, metavar="<file>",
-        help='Location of the file containing the credentials to be used for connections (format is "username:password").')
 
     parser.add_argument("-T", "--threads", dest="max_threads", type=int, default=10, metavar="<int>",
         help="Number of threads to spawn for simultaneous connection attempts [default: 10].")
@@ -108,16 +124,11 @@ def create_argument():
         help="Don't print status messages to stdout (only print errors).")
     parser.add_argument("-P", "--port", dest="port", type=int, default=22, metavar="<port>",
         help="The port to be used when connecting.  Defaults to 22.")
-    parser.add_argument("-u", "--username", dest="username", default='root', metavar="<username>",
-        help="The username to be used when connecting.  Defaults to the currently logged-in user.")
-    parser.add_argument("-p", "--password", dest="password", default=None, metavar="<password>",
-        help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).")
     parser.add_argument("-t", "--timeout", dest="timeout", default=30, metavar="<seconds>",
         help="Timeout (in seconds) before giving up on an SSH connection (default: 30)")
    
     action_parsers = parser.add_subparsers(title='Available actions', dest='action')
     scp_parser = action_parsers.add_parser("scp")
-    #scp_parser.set_defaults(func=SCPAction())
     scp_parser.add_argument("-c", "--copy-file", required=True, dest="local_filepath", default=None, metavar="<file>",
         help="Location of the file to copy to and optionally execute (-x) on hosts.")
     scp_parser.add_argument("-d", "--dest", required=True, dest="remote_filepath", default="/tmp/", metavar="<path>",
@@ -136,18 +147,10 @@ def create_argument():
         help='Commands')
 
     options, args = parser.parse_known_args()
-    if options.hostfile:
-        options.hosts = options.hostfile.read()
-    elif options.stdin:
-        # if stdin wasn't piped in, prompt the user for it now
-        if not select.select([sys.stdin, ], [], [], 0.0)[0]:
-            sys.stdout.write("Enter list of hosts (one entry per line). ")
-            sys.stdout.write("Ctrl-D to end input.\n")
-        # in either case, read data from stdin
-        options.hosts = sys.stdin.read()
-    elif options.hosts:
+
+    if options.hosts:
         options.hosts = options.hosts.split(":")
-    elif options.ini_file:
+    elif options.server_file:
         ini_config = SafeConfigParser(allow_no_value=True)
         ini_config.read(options.ini_file[0])
         options.hosts = [server[1] for server in ini_config.items(options.ini_file[1])]
