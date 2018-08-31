@@ -30,6 +30,7 @@ if PY2:
     from ConfigParser import SafeConfigParser
 else:
     from configparser import SafeConfigParser
+import yaml
 from argparse import ArgumentParser
 import logging
 logging.basicConfig(level=logging.INFO)
