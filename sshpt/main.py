@@ -23,6 +23,8 @@ from __future__ import print_function
 
 from ._compat import PY2, PY3
 from ._compat import input
+import fnmatch
+import copy
 import sys
 import select
 import getpass
@@ -85,7 +87,8 @@ def create_argument():
         help="The username to be used when connecting.  Defaults to the currently logged-in user.")
     parser.add_argument("-p", "--password", dest="password", default=None, metavar="<password>",
         help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).")
-    parser.add_argument("--use-password", action='store_true')
+    parser.add_argument("--use-password", action='store_true',
+        help="Use passowrd input")
     parser.add_argument("-k", "--key-file", dest="keyfile", default=None, metavar="<file>",
         help="Location of the private key file")
     parser.add_argument("-K", "--key-pass", dest="keypass", metavar="<password>", default=None,
@@ -147,26 +150,26 @@ def create_argument():
         options.password = ""
 
     if options.hosts:
-        hosts = []
-        for host in options.hosts.split(","):
-            hosts.append(
-                {'host': host, 'port': options.port, 'username': options.username, 'password': Password(options.password), 'keyfile': options.keyfile, 'keypass':options.keypass}
+        hosts_str = copy.deepcopy(options.hosts)
+        options.hosts = []
+        for host in hosts_str.split(","):
+            options.hosts.append(
+                {'host': host, 'port': options.port, 'username': options.username, 'password': options.password, 'keyfile': options.keyfile, 'keypass':options.keypass}
             )
-        options.hosts = hosts
     if options.server_file:
         with open(options.server_file, 'r') as f:
-            hosts_data = yaml.load(f.read())
-            if options.hosts[0]['host'] == '*':
-                options.hosts = [hosts_data[alias] for alias in hosts_data]
-            else:
-                hosts = []
-                for alias in hosts_data:
-                    for host in options.hosts:
-                        if alias == host['host']:
-                            hosts_data[alias]['password'] = Password(hosts_data[alias]['password'])
-                            host.update(hosts_data[alias])
-                            hosts.append(host)
-                options.hosts = hosts
+            servers_from_yml = yaml.load(f.read())
+            hosts = []
+            for alias in servers_from_yml:
+                for host in options.hosts:
+                    host = copy.deepcopy(host)
+                    search = host['host']
+                    if fnmatch.fnmatch(alias, search):
+                        if 'password' in servers_from_yml[alias]:
+                            servers_from_yml[alias]['password'] = Password(servers_from_yml[alias]['password'])
+                        host.update(servers_from_yml[alias])
+                        hosts.append(host)
+            options.hosts = hosts
     if options.outfile is None and options.verbose is False:
         print("Error: You have not specified any mechanism to output results.")
         print("Please don't use quite mode (-q) without an output file (-o <file>).")
