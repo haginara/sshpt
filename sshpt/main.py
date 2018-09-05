@@ -33,6 +33,7 @@ if PY2:
 else:
     from configparser import SafeConfigParser
 import yaml
+import argparse
 from argparse import ArgumentParser
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -72,8 +73,9 @@ def create_argument():
                 scp:
                     {{}}
     """
-    usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
-    parser = ArgumentParser(usage=usage)
+    usage = 'sshpt [options] "[command1]" "[command2]" ...'
+    parser = ArgumentParser(usage=usage,
+            formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('-v', '--version', action='version', version=version.__version__)
 
@@ -109,8 +111,8 @@ def create_argument():
     parser.add_argument("-t", "--timeout", dest="timeout", default=30, metavar="<seconds>",
         help="Timeout (in seconds) before giving up on an SSH connection (default: 30)")
    
-    action_parsers = parser.add_subparsers(title='Available actions', dest='action')
-    scp_parser = action_parsers.add_parser("scp")
+    action_parsers = parser.add_subparsers(title='Available actions', dest='action', help="Sub-command help")
+    scp_parser = action_parsers.add_parser("scp", help="File transfer")
     scp_parser.add_argument("-c", "--copy-file", required=True, dest="local_filepath", default=None, metavar="<file>",
         help="Location of the file to copy to and optionally execute (-x) on hosts.")
     scp_parser.add_argument("-d", "--dest", required=True, dest="remote_filepath", default="/tmp/", metavar="<path>",
@@ -122,7 +124,7 @@ def create_argument():
     scp_parser.add_argument("-s", "--sudo", nargs="?", action="store", dest="sudo", default=False,
         help="Use sudo to execute the command (default: as root).")
 
-    cmd_parser = action_parsers.add_parser("cmd")
+    cmd_parser = action_parsers.add_parser("cmd", help="Run remote command")
     cmd_parser.add_argument("-s", "--sudo", nargs="?", action="store", dest="sudo", default=False,
         help="Use sudo to execute the command (default: as root).")
     cmd_parser.add_argument('commands', metavar='Commands', type=str, nargs='*', default=False,
