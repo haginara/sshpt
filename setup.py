@@ -14,7 +14,7 @@ __license__ = "GNU General Public License (GPL) Version 3"
 __author__ = 'Dan McDougall <YouKnowWho@YouKnowWhat.com>'
 __second_author__ = 'Jonghak Choi <haginara@gmail.com>'
 
-install_requires = ['paramiko>=1.10,<2.0']
+install_requires = ['paramiko>=2.4.2']
 
 setup(
     name='sshpt',
