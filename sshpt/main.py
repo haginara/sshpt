@@ -66,6 +66,8 @@ def option_parse(options):
 
 def create_argument():
     usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
+
+    default_username=getpass.getuser()
     parser = ArgumentParser(usage=usage)
 
     parser.add_argument('-v', '--version', action='version', version=version.__version__)
@@ -93,8 +95,8 @@ def create_argument():
         help="Number of threads to spawn for simultaneous connection attempts [default: 10].")
     parser.add_argument("-P", "--port", dest="port", type=int, default=22, metavar="<port>",
         help="The port to be used when connecting.  Defaults to 22.")
-    parser.add_argument("-u", "--username", dest="username", default='root', metavar="<username>",
-        help="The username to be used when connecting.  Defaults to the currently logged-in user.")
+    parser.add_argument("-u", "--username", dest="username", default=default_username, metavar="<username>",
+        help="The username to be used when connecting.  Defaults to the currently logged-in user [{}].".format(default_username))
     parser.add_argument("-p", "--password", dest="password", default=None, metavar="<password>",
         help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).")
     parser.add_argument("-q", "--quiet", action="store_false", dest="verbose", default=True,
@@ -109,6 +111,8 @@ def create_argument():
         help="Timeout (in seconds) before giving up on an SSH connection (default: 30)")
     parser.add_argument("-s", "--sudo", nargs="?", action="store", dest="sudo", default=False,
         help="Use sudo to execute the command (default: as root).")
+    parser.add_argument("-X", "--passwordless", action="store_true", dest="passwordless", default=False,
+        help="Use ssh keys without a password")
     parser.add_argument("-O", "--output-format", dest="output_format",
         choices=['csv', 'json'], default="csv",
         help="Ouptut format")
@@ -153,9 +157,9 @@ def create_argument():
     # Get the username and password to use when checking hosts
     if options.username is None:
         options.username = raw_input('Username: ')
-    if options.keyfile and options.keypass is None:
+    if options.keyfile and options.keypass is None and not options.passwordless:
         options.keypass = Password(getpass.getpass('Passphrase: '))
-    elif options.password is None:
+    elif options.password is None and not options.passwordless:
         options.password = Password(getpass.getpass('Password: '))
         if options.password == '':
             print ('\nPlease type the password')
