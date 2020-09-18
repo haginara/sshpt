@@ -61,6 +61,7 @@ class SSHThread(GenericThread):
         queueObj['execute'] - Boolean
         queueObj['remove'] - Boolean
         queueObj['sudo'] - Boolean
+        queueObj['passwordless'] - Boolean
         queueObj['connection_result'] - String: 'SUCCESS'/'FAILED'
         queueObj['command_output'] - String: Textual output of commands after execution
     """
@@ -97,7 +98,7 @@ class SSHThread(GenericThread):
             logger.error("Error: Create_key: %s", detail)
         return key
 
-    def paramikoConnect(self, host, username, password, timeout, port=22, key_file="", key_pass=""):
+    def paramikoConnect(self, host, username, password, timeout, port=22, key_file="", key_pass="", passwordless=False):
         """Connects to 'host' and returns a Paramiko transport object to use in further communications"""
         # Uncomment this line to turn on Paramiko debugging (good for troubleshooting why some servers report connection failures)
         #paramiko.util.log_to_file('paramiko.log')
@@ -107,7 +108,10 @@ class SSHThread(GenericThread):
 
         try:
             if key_file:
-                key = self.create_key(key_file, key_pass)
+                if passwordless:
+                    key = paramiko.RSAKey.from_private_key_file(key_file)
+                else:
+                    key = self.create_key(key_file, key_pass)
                 ssh.connect(host, port=port, username=username, timeout=timeout, pkey=key)
             else:
                 ssh.connect(host, port=port, username=username, password=password, timeout=timeout)
@@ -153,7 +157,7 @@ class SSHThread(GenericThread):
         return command_output
 
     def attemptConnection(self, host, username="", password="", keyfile="", keypass="", timeout=30, commands=[],
-        local_filepath=False, remote_filepath='/tmp', execute=False, remove=False, sudo=False, port=22):
+        local_filepath=False, remote_filepath='/tmp', execute=False, remove=False, sudo=False, passwordless=False, port=22):
         """Attempt to login to 'host' using 'username'/'password' and execute 'commands'.
         Will excute commands via sudo if 'sudo' is set to True (as root by default) and optionally as a given user (sudo).
         Returns connection_result as a boolean and command_output as a string."""
@@ -169,7 +173,7 @@ class SSHThread(GenericThread):
 
         connection_result = True
         command_output = []
-        ssh = self.paramikoConnect(host, username, password=password, timeout=timeout, port=port, key_file=keyfile, key_pass=keypass)
+        ssh = self.paramikoConnect(host, username, password=password, timeout=timeout, port=port, key_file=keyfile, key_pass=keypass, passwordless=passwordless)
         if isinstance(ssh, basestring):
             # If ssh is a string that means the connection failed and 'ssh' is the details as to why
             connection_result = False
