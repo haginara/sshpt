@@ -82,9 +82,9 @@ def create_argument():
         help="Configuration file with INI Format. ex)--ini-file path, server")
     host_group.add_argument("-j", "--json", default=None, nargs=2,
         help="Configuration file with JSON Format. ex)--json path, server")
-
-    parser.add_argument("-k", "--key-file", dest="keyfile", default=None, metavar="<file>",
-        help="Location of the private key file")
+    parser.add_argument("-k", "--key-file", dest="keyfile", default="-", metavar="<file>", nargs="?",
+        help="""Location of the private key file.  If provided without a value, defaults to
+        /home/<username>/.ssh/id_rsa""")
     parser.add_argument("-K", "--key-pass", dest="keypass", metavar="<password>", default=None,
         help="The password to be used when use the private key file).")
     parser.add_argument("-o", "--outfile", dest="outfile", default=None, metavar="<file>",
@@ -116,6 +116,13 @@ def create_argument():
     parser.add_argument("-O", "--output-format", dest="output_format",
         choices=['csv', 'json'], default="csv",
         help="Ouptut format")
+
+    # we use a default of "-" for the -C/ssh-config option to differentiate from None
+    #    -        = -C not provided, eventually set it to None
+    #    None     = -C passed with no arg, set to default .sshconfig relative user
+    #    anything = <anything> passed as the arg
+    parser.add_argument("-C", "--ssh-config", dest="sshconfig", default="-", metavar="<file>", nargs="?",
+        help=f"use ssh config file for hosts.  Defaults to /home/{default_username}/.ssh/config")
 
     action_group = parser.add_mutually_exclusive_group(required=True)
     action_group.add_argument("-c", "--copy-file", dest="local_filepath", default=None, metavar="<file>",
@@ -157,6 +164,14 @@ def create_argument():
     # Get the username and password to use when checking hosts
     if options.username is None:
         options.username = raw_input('Username: ')
+
+    # if keyfile is None, use the default, if it's the default-delimiter, set it to None
+    if options.keyfile is None:
+        options.keyfile = f"/home/{options.username}/.ssh/id_rsa"
+        print(f"using default keyfile: {options.keyfile}")
+    elif options.keyfile == "-":
+        options.keyfile = None
+
     if options.keyfile and options.keypass is None and not options.passwordless:
         options.keypass = Password(getpass.getpass('Passphrase: '))
     elif options.password is None and not options.passwordless:
@@ -164,6 +179,13 @@ def create_argument():
         if options.password == '':
             print ('\nPlease type the password')
             raise Exception('Please type the password')
+
+    # if sshconfig is None, use the default relative to username
+    # if it's "-", set it to None
+    if options.sshconfig is None:
+        options.sshconfig = f"/home/{options.username}/.ssh/config"
+    elif options.sshconfig == '-':
+        options.sshconfig = None
 
     options.hosts = _normalize_hosts(options.hosts)
     return options
