@@ -82,30 +82,34 @@ class SSHPowerTool(object):
 
 
         for host in self.options.hosts:
-            if self.ssh_connect_queue.qsize() <= self.options.max_threads:
-                if self.options.passwordless:
-                    password = None
-                else:
-                    password = host.get('password', self.options.password).password,
+            while self.ssh_connect_queue.qsize() > self.options.max_threads:
+                sleep(0.1)
 
-                if ssh_config:
-                    host_lookup = ssh_config.lookup(host['host'])
-                    if host_lookup['hostname'] != host['host']:
-                        logger.debug("found hostname in ssh config file: substituing %s for %s",
-                                     host_lookup['hostname'], host['host'])
-                        host['host'] = host_lookup['hostname']
+#            if self.ssh_connect_queue.qsize() <= self.options.max_threads:
+            if self.options.passwordless:
+                password = None
+            else:
+                password = host.get('password', self.options.password).password
 
-                queueObj = dict(
-                    host=host.get('host'),
-                    username=host.get('username', self.options.username),
-                    password=password,
-                    keyfile=self.options.keyfile, keypass=self.options.keypass,
-                    timeout=self.options.timeout,
-                    commands=self.options.commands,
-                    passwordless=self.options.passwordless,
-                    local_filepath=self.options.local_filepath, remote_filepath=self.options.remote_filepath,
-                    execute=self.options.execute, remove=self.options.remove, sudo=self.options.sudo, port=self.options.port)
-                self.ssh_connect_queue.put(queueObj)
+            if ssh_config:
+                host_lookup = ssh_config.lookup(host['host'])
+                logger.debug("host_lookup: %s", host_lookup)
+                if host_lookup['hostname'] != host['host']:
+                    logger.debug("found hostname in ssh config file: substituing %s for %s",
+                                 host_lookup['hostname'], host['host'])
+                    host['host'] = host_lookup['hostname']
+
+            queueObj = dict(
+                host=host.get('host'),
+                username=host.get('username', self.options.username),
+                password=password,
+                keyfile=self.options.keyfile, keypass=self.options.keypass,
+                timeout=self.options.timeout,
+                commands=self.options.commands,
+                passwordless=self.options.passwordless,
+                local_filepath=self.options.local_filepath, remote_filepath=self.options.remote_filepath,
+                execute=self.options.execute, remove=self.options.remove, sudo=self.options.sudo, port=self.options.port)
+            self.ssh_connect_queue.put(queueObj)
             #sleep(0.1)
         # Wait until all jobs are done before exiting
         self.ssh_connect_queue.join()
