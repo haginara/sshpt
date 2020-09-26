@@ -30,7 +30,6 @@ else:
     from configparser import SafeConfigParser
 from argparse import ArgumentParser
 import logging
-logging.basicConfig(level=logging.INFO)
 
 from . import version
 from .sshpt import SSHPowerTool
@@ -38,6 +37,12 @@ from .SSHQueue import stopSSHQueue
 from .OutputThread import stopOutputThread
 
 from .Generic import Password
+
+# map the debug_level choices to the python logging levels
+DEBUG_LEVEL = { 'err': logging.ERROR,
+                'warn': logging.WARNING,
+                'info': logging.INFO,
+                'debug': logging.DEBUG}
 
 def _parse_hostfile(host):
     keys = ['host', 'username', 'password']
@@ -116,6 +121,10 @@ def create_argument():
     parser.add_argument("-O", "--output-format", dest="output_format",
         choices=['csv', 'json'], default="csv",
         help="Ouptut format")
+    parser.add_argument("--debug", dest="debug_level",
+        choices=['err', 'warn', 'info', 'debug'], default="warn",
+        help="Level of debug messages, defaults to [warn]")
+
 
     # we use a default of "-" for the -C/ssh-config option to differentiate from None
     #    -        = -C not provided, eventually set it to None
@@ -131,6 +140,9 @@ def create_argument():
         help='Commands')
 
     options = parser.parse_args()
+
+    logging.basicConfig(level=DEBUG_LEVEL[options.debug_level])
+
     if options.hostfile:
         options.hosts = options.hostfile.read()
     elif options.stdin:
@@ -184,6 +196,7 @@ def create_argument():
     # if it's "-", set it to None
     if options.sshconfig is None:
         options.sshconfig = f"/home/{options.username}/.ssh/config"
+        print(f"using default ssh-config file: {options.sshconfig}")
     elif options.sshconfig == '-':
         options.sshconfig = None
 

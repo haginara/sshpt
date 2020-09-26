@@ -183,7 +183,7 @@ class SSHThread(GenericThread):
         if local_filepath:
             logger.info("sudo: %s, local_filepath: %s, remote_filepath: %s", sudo, local_filepath, remote_filepath)
             local_short_filename = os.path.basename(local_filepath)
-            remote_fullpath = os.path.join(remote_filepath + '/', local_short_filename)
+            remote_fullpath = os.path.join(remote_filepath, local_short_filename)
             try:
                 if sudo:
                     temp_path = os.path.join('/tmp/', local_short_filename)
@@ -207,18 +207,16 @@ class SSHThread(GenericThread):
                 # Make sure the error is included in the command output
                 command_output.append(str(details))
         try:
-            remove = False
             if commands:
                 for command in commands:
                     # This makes a list of lists (each line of output in command_output is it's own item in the list)
                     command_output.append(self.executeCommand(ssh=ssh, command=command, sudo=sudo, password=password))
-                    remove = True
             if local_filepath is False and commands is False and execute is False:
                 # If we're not given anything to execute run the uptime command to make sure that we can execute *something*
                 command_output = self.executeCommand(ssh=ssh, command='uptime', sudo=sudo, password=password)
             if local_filepath and remove:
                 # Clean up/remove the file we just uploaded and executed
-                rm_command = "rm -f %s" % remote_fullpath
+                rm_command = f"rm -f {remote_fullpath}"
                 self.executeCommand(ssh=ssh, command=rm_command, sudo=sudo, password=password)
             command_output = [normalizeString(output) for output in command_output]
         except Exception as detail:

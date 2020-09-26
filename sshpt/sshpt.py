@@ -23,7 +23,6 @@
 # TODO:  Add stderr handling
 # TODO:  Add ability to specify the ownership and permissions of uploaded files (when sudo is used)
 # TODO:  Add logging using the standard module
-# TODO:  Supports Python3
 
 # Docstring:
 """
@@ -85,7 +84,6 @@ class SSHPowerTool(object):
             while self.ssh_connect_queue.qsize() > self.options.max_threads:
                 sleep(0.1)
 
-#            if self.ssh_connect_queue.qsize() <= self.options.max_threads:
             if self.options.passwordless:
                 password = None
             else:
