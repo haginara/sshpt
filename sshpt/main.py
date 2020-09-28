@@ -173,18 +173,18 @@ def main():
     """Main program function:  Grabs command-line arguments, starts up threads, and runs the program.
     """
     # Grab command line arguments and the command to run (if any)
-    options = create_argument()
-    if 0 != option_parse(options):
-        return 2
-    sshpt = SSHPowerTool(options)
-    # This wierd little sequence of loops allows us to hit control-C
-    # in the middle of program execution and get immediate results
     try:
+        options = create_argument()
+        if 0 != option_parse(options):
+            return 2
+        sshpt = SSHPowerTool(options)
+        # This wierd little sequence of loops allows us to hit control-C
+        # in the middle of program execution and get immediate results
         output_queue = sshpt()
         # Just to be safe we wait for the OutputThread to finish before moving on
         output_queue.join()
     except KeyboardInterrupt:
-        print ('caught KeyboardInterrupt, exiting...')
+        print ('\ncaught KeyboardInterrupt, exiting...')
         # Return code should be 1 if the user issues a SIGINT (control-C)
         # Clean up
         stopSSHQueue()
