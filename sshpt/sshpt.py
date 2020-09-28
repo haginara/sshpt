@@ -71,7 +71,7 @@ class SSHPowerTool(object):
                 if self.options.passwordless:
                     password = None
                 else:
-                    password = host.get('password', self.options.password).password,
+                    password = host.get('password', self.options.password).password
 
                 queueObj = dict(
                     host=host.get('host'),

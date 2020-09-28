@@ -23,8 +23,6 @@ import sys
 from itertools import cycle
 import base64
 import threading
-if sys.version_info[0] == 3:
-    xrange = range
 
 
 ### ---- Private Functions ----
@@ -61,7 +59,7 @@ class Password(object):
 
     @staticmethod
     def decode(s, key='sshpt256'):
-        dec = [chr(abs(ord(s[i]) - ord(key[i % len(key)])) % 256) for i in xrange(len(s))]
+        dec = [chr(abs(ord(s[i]) - ord(key[i % len(key)])) % 256) for i in range(len(s))]
         return "".join(dec)
 
 class GenericThread(threading.Thread):

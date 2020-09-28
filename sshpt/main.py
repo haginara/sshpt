@@ -24,13 +24,10 @@ from __future__ import print_function
 import sys
 import select
 import getpass
-if sys.version_info[0] == 2:
-    from ConfigParser import SafeConfigParser
-else:
-    from configparser import SafeConfigParser
+from configparser import SafeConfigParser
 from argparse import ArgumentParser
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 from . import version
 from .sshpt import SSHPowerTool
@@ -96,7 +93,7 @@ def create_argument():
     parser.add_argument("-P", "--port", dest="port", type=int, default=22, metavar="<port>",
         help="The port to be used when connecting.  Defaults to 22.")
     parser.add_argument("-u", "--username", dest="username", default=default_username, metavar="<username>",
-        help="The username to be used when connecting.  Defaults to the currently logged-in user [{}].".format(default_username))
+        help=f"The username to be used when connecting.  Defaults to the currently logged-in user [{default_username}].")
     parser.add_argument("-p", "--password", dest="password", default=None, metavar="<password>",
         help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).")
     parser.add_argument("-q", "--quiet", action="store_false", dest="verbose", default=True,

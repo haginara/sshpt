@@ -104,7 +104,7 @@ class SSHThread(GenericThread):
         #paramiko.util.log_to_file('paramiko.log')
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        logger.debug("paramikoConnect:connect, %s:%s", username, host)
+        logger.debug(f"paramikoConnect:connect, {username}@{host}")
 
         try:
             if key_file:
@@ -136,7 +136,7 @@ class SSHThread(GenericThread):
         """Executes the given command via sudo as the specified user (sudo) using the given Paramiko transport object.
         Returns stdout, stderr (after command execution)"""
         logger.debug("Run sudoExecute: %s, %s", sudo, command)
-        stdin, stdout, stderr = ssh.exec_command("sudo -S -u %s %s" % (sudo, command))
+        stdin, stdout, stderr = ssh.exec_command(f"sudo -S -u {sudo} {command}")
         if stdout.channel.closed is False:
             # If stdout is still open then sudo is asking us for a password
             stdin.write('%s\n' % password)
@@ -186,22 +186,23 @@ class SSHThread(GenericThread):
             remote_fullpath = os.path.join(remote_filepath + '/', local_short_filename)
             try:
                 if sudo:
-                    temp_path = os.path.join('/tmp/', local_short_filename)
+                    temp_path = os.path.join('/tmp', local_short_filename)
                     logger.info("Put the file temp first %s to %s", local_filepath, temp_path)
                     self.sftpPut(ssh, local_filepath, temp_path)
-                    command_output.append(self.executeCommand(ssh, command="mv %s %s" % (temp_path, remote_fullpath), sudo=sudo, password=password))
+                    command = f"mv {tmp_path} {remote_fullpath}"
+                    command_output.append(self.executeCommand(ssh, command=command, sudo=sudo, password=password))
                 else:
                     self.sftpPut(ssh, local_filepath, remote_fullpath)
 
                 if execute:
                     # Make it executable (a+x in case we run as another user via sudo)
-                    chmod_command = "chmod a+x %s" % remote_fullpath
+                    chmod_command = f"chmod a+x {remote_filepath}"
                     self.executeCommand(ssh=ssh, command=chmod_command, sudo=sudo, password=password)
                     # The command to execute is now the uploaded file
                     commands = [remote_fullpath, ]
                 else:
                     # We're just copying a file (no execute) so let's return it's details
-                    commands = ["ls -l %s" % remote_fullpath, ]
+                    commands = [f"ls -l {remote_fullpath}", ]
             except IOError as details:
                 # i.e. permission denied
                 # Make sure the error is included in the command output
@@ -224,7 +225,7 @@ class SSHThread(GenericThread):
         except Exception as detail:
             # Connection failed
             print (sys.exc_info())
-            print("Exception: %s" % detail)
+            print(f"Exception: {detail}")
             connection_result = False
             command_output = detail
         finally:

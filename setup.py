@@ -2,10 +2,14 @@
 # -*- coding: utf-8 -*-
 
 import sys
-
+import os import path
 from setuptools import setup, find_packages
 
-from sshpt import version
+_locals = {}
+with open("sshpt/version.py") as f:
+    exec(f.read(), None, _locals)
+version = _locals['__version__']
+
 
 EXCLUDE_FROM_PACKAGES = ['test']
 # Meta
@@ -31,8 +35,10 @@ setup(
         "License :: OSI Approved :: GNU General Public License (GPL)",
         "Operating System :: Unix",
         "Environment :: Console",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Topic :: System :: Systems Administration",
     ],  # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
     packages=find_packages(exclude=EXCLUDE_FROM_PACKAGES),

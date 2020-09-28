@@ -66,34 +66,34 @@ class OutputThread(GenericThread):
 
         if self.outfile:
             with open(self.outfile, 'a') as f:
-                f.write("%s\n" % output)
+                f.write(f"{output}\n")
 
     def writeOut(self, queueObj):
         """Write relevant queueObj information to stdout and/or to the outfile (if one is set)"""
         if queueObj['local_filepath']:
-            queueObj['commands'] = "sshpt: sftp.put %s %s:%s" % (queueObj['local_filepath'], queueObj['host'], queueObj['remote_filepath'])
+            queueObj['commands'] = f"sshpt: sftp.put {queueObj['local_filepath']} {queueObj['host']}:{queueObj['remote_filepath']}"
         elif queueObj['sudo'] is False:
             if len(queueObj['commands']) > 1:
                 # Only prepend 'index: ' if we were passed more than one command
-                queueObj['commands'] = "\n".join(["%s: %s" % (index, command) for index, command in enumerate(queueObj['commands'])])
+                queueObj['commands'] = "\n".join([f"{index}: {command}" for index, command in enumerate(queueObj['commands'])])
             else:
                 queueObj['commands'] = "".join(queueObj['commands'])
         else:
             if len(queueObj['commands']) > 1:
                 # Only prepend 'index: ' if we were passed more than one command
-                queueObj['commands'] = "\n".join(["%s: sudo -u %s %s" % (index, queueObj['sudo'], command) for index, command in enumerate(queueObj['commands'])])
+                queueObj['commands'] = "\n".join([f"{index}: sudo -u {queueObj['sudo']} {coomand}" for index, command in enumerate(queueObj['commands'])])
             else:
-                queueObj['commands'] = "sudo -u %s %s" % (queueObj['sudo'], "".join(queueObj['commands']))
+                queueObj['commands'] = f"sudo -u {queueObj['sudo']} {''.join(queueObj['commands'])}"
         if isinstance(queueObj['command_output'], str):
             # Since it is a string we'll assume it is already formatted properly
             pass
         elif len(queueObj['command_output']) > 1:
             # Only prepend 'index: ' if we were passed more than one command
-            queueObj['command_output'] = "\n".join(["%s: %s" % (index, command) for index, command in enumerate(queueObj['command_output'])])
+            queueObj['command_output'] = "\n".join([f"{index}: {command}" for index, command in enumerate(queueObj['command_output'])])
         else:
             queueObj['command_output'] = "\n".join(queueObj['command_output'])
         if self.output_format == 'csv':
-            output = "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"" % (queueObj['host'], queueObj['connection_result'], datetime.datetime.now(), queueObj['commands'], queueObj['command_output'])
+            output = f"\"{queueObj['host']}\",\"{queueObj['connection_result']}\",\"{datetime.datetime.now()}\",\"{queueObj['commands']}\",\"{queueObj['command_output']}\""
         elif self.output_format == 'json':
             output = {'host': queueObj['host'], 'connection_result': queueObj['connection_result'], 'timestamp': str(datetime.datetime.now()), 'commands': queueObj['commands'], 'command_output': queueObj['command_output']}
 
