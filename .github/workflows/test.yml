@@ -1,4 +1,4 @@
-name: ssh-config Test
+name: sshpt Test
 
 on:
   push:
