@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import os import path
+from os import path
 from setuptools import setup, find_packages
 
 _locals = {}
