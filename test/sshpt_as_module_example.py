@@ -7,16 +7,16 @@ This script is demonstrates how to import and use the SSH Power Tool (sshpt) in 
 
 # Import some basic built-in modules
 import getpass
-import Queue
+from queue import Queue
 
 # Import the module du jour
 import sshpt
 
 # Obtain the basic information necessary to use sshpt
-hostlist = raw_input('Host(s) (use spaces for multiple): ').split(' ')
-username = raw_input('Username: ')
+hostlist = input('Host(s) (use spaces for multiple): ').split(' ')
+username = input('Username: ')
 password = getpass.getpass('Password: ')
-command = raw_input('Command: ')
+command = input('Command: ')
 # 'commands' has to be a list
 commands = [command, ]
 
