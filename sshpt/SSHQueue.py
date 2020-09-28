@@ -189,7 +189,7 @@ class SSHThread(GenericThread):
                     temp_path = os.path.join('/tmp', local_short_filename)
                     logger.info("Put the file temp first %s to %s", local_filepath, temp_path)
                     self.sftpPut(ssh, local_filepath, temp_path)
-                    command = f"mv {tmp_path} {remote_fullpath}"
+                    command = f"mv {temp_path} {remote_fullpath}"
                     command_output.append(self.executeCommand(ssh, command=command, sudo=sudo, password=password))
                 else:
                     self.sftpPut(ssh, local_filepath, remote_fullpath)

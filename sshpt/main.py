@@ -148,12 +148,12 @@ def create_argument():
         credentials = open(options.authfile).readline()
         options.username, options.password = credentials.split(":")
         # Get rid of trailing newline
-        options.password = Password(password.rstrip('\n'))
+        options.password = Password(options.password.rstrip('\n'))
     options.sudo = 'root' if options.sudo is None else options.sudo
 
     # Get the username and password to use when checking hosts
     if options.username is None:
-        options.username = raw_input('Username: ')
+        options.username = input('Username: ')
     if options.keyfile and options.keypass is None and not options.passwordless:
         options.keypass = Password(getpass.getpass('Passphrase: '))
     elif options.password is None and not options.passwordless:
