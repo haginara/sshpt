@@ -23,13 +23,12 @@
 # TODO:  Add stderr handling
 # TODO:  Add ability to specify the ownership and permissions of uploaded files (when sudo is used)
 # TODO:  Add logging using the standard module
-# TODO:  Supports Python3
 
 # Docstring:
 """
 SSH Power Tool (SSHPT): This program will attempt to login via SSH to a list of servers supplied in a text file (one host per line).  It supports multithreading and will perform simultaneous connection attempts to save time (10 by default).  Results are output to stdout in CSV format and optionally, to an outfile (-o).
 If no username and/or password are provided as command line arguments or via a credentials file the program will prompt for the username and password to use in the connection attempts.
-This program is meant for situations where shared keys are not an option.  If all your hosts are configured with shared keys for passwordless logins you don't need the SSH Power Tool.
+This program is meant for situations where shared keys are not an option.  If all your hosts are configured with shared keys for passwordless logins use the -X/--passwordless argument for RSA keys.
 """
 
 
@@ -39,6 +38,14 @@ import sys
 
 from time import sleep
 import logging
+
+try:
+    import paramiko
+    logging.getLogger("paramiko").setLevel(logging.WARNING)
+except ImportError:
+    print("ERROR: The Paramiko module required to use sshpt.")
+    print("Download it here: http://www.lag.net/paramiko/")
+    sys.exit(1)
 
 # Import Internal
 from .OutputThread import startOutputThread, stopOutputThread
@@ -66,24 +73,41 @@ class SSHPowerTool(object):
             # Assume we're just doing a connection test
             self.options.commands = ['echo CONNECTION TEST', ]
 
-        for host in self.options.hosts:
-            if self.ssh_connect_queue.qsize() <= self.options.max_threads:
-                if self.options.passwordless:
-                    password = None
-                else:
-                    password = host.get('password', self.options.password).password,
+        if self.options.sshconfig:
+            ssh_config = paramiko.SSHConfig()
+            ssh_config.parse(open(self.options.sshconfig))
+        else:
+            ssh_config = None
 
-                queueObj = dict(
-                    host=host.get('host'),
-                    username=host.get('username', self.options.username),
-                    password=password,
-                    keyfile=self.options.keyfile, keypass=self.options.keypass,
-                    timeout=self.options.timeout,
-                    commands=self.options.commands,
-                    passwordless=self.options.passwordless,
-                    local_filepath=self.options.local_filepath, remote_filepath=self.options.remote_filepath,
-                    execute=self.options.execute, remove=self.options.remove, sudo=self.options.sudo, port=self.options.port)
-                self.ssh_connect_queue.put(queueObj)
+
+        for host in self.options.hosts:
+            while self.ssh_connect_queue.qsize() > self.options.max_threads:
+                sleep(0.1)
+
+            if self.options.passwordless:
+                password = None
+            else:
+                password = host.get('password', self.options.password).password
+
+            if ssh_config:
+                host_lookup = ssh_config.lookup(host['host'])
+                logger.debug("host_lookup: %s", host_lookup)
+                if host_lookup['hostname'] != host['host']:
+                    logger.debug("found hostname in ssh config file: substituing %s for %s",
+                                 host_lookup['hostname'], host['host'])
+                    host['host'] = host_lookup['hostname']
+
+            queueObj = dict(
+                host=host.get('host'),
+                username=host.get('username', self.options.username),
+                password=password,
+                keyfile=self.options.keyfile, keypass=self.options.keypass,
+                timeout=self.options.timeout,
+                commands=self.options.commands,
+                passwordless=self.options.passwordless,
+                local_filepath=self.options.local_filepath, remote_filepath=self.options.remote_filepath,
+                execute=self.options.execute, remove=self.options.remove, sudo=self.options.sudo, port=self.options.port)
+            self.ssh_connect_queue.put(queueObj)
             #sleep(0.1)
         # Wait until all jobs are done before exiting
         self.ssh_connect_queue.join()
