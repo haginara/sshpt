@@ -21,6 +21,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
 
+from os import environ as env
 import sys
 import select
 import getpass
@@ -28,6 +29,8 @@ if sys.version_info[0] == 2:
     from ConfigParser import SafeConfigParser
 else:
     from configparser import SafeConfigParser
+    raw_input = input
+
 from argparse import ArgumentParser
 import logging
 
@@ -70,74 +73,134 @@ def option_parse(options):
 
 
 def create_argument():
+    #pylint: disable=too-many-statements, too-many-branches
+    '''
+        parse the arguments, using environment variables, if available as the defaults.
+        the env vars can be overidden with the respective cmd line args
+    '''
     usage = 'usage: sshpt [options] "[command1]" "[command2]" ...'
 
-    default_username=getpass.getuser()
+    default_username = env.get("SSHPT_USERNAME", getpass.getuser())
+
     parser = ArgumentParser(usage=usage)
 
     parser.add_argument('-v', '--version', action='version', version=version.__version__)
+
     host_group = parser.add_mutually_exclusive_group(required=True)
-    host_group.add_argument("-f", "--file", dest="hostfile", default=None, type=open,
-        help="Location of the file containing the host list.")
+
+    host_group.add_argument("-f", "--file", dest="hostfile",
+                            default=env.get("SSHPT_HOSTFILE"), type=open,
+                            help="Location of the file containing the host list.")
+
     host_group.add_argument("-S", "--stdin", dest="stdin", default=False,
-        action="store_true", help="Read hosts from standard input")
+                            action="store_true", help="Read hosts from standard input")
+
     host_group.add_argument("--hosts", dest='hosts', default=None,
-        help='Specify a host list on the command line. ex)--hosts="host1:host2:host3"')
+                            help='Specify a host list on the command line. '
+                            'ex--hosts="host1:host2:host3"')
+
     host_group.add_argument("-i", "--ini-file", default=None, nargs=2,
-        help="Configuration file with INI Format. ex)--ini-file path, server")
+                            help="Configuration file with INI Format. ex)--ini-file path, server")
+
     host_group.add_argument("-j", "--json", default=None, nargs=2,
-        help="Configuration file with JSON Format. ex)--json path, server")
-    parser.add_argument("-k", "--key-file", dest="keyfile", default="-", metavar="<file>", nargs="?",
-        help="""Location of the private key file.  If provided without a value, defaults to
-        /home/<username>/.ssh/id_rsa""")
-    parser.add_argument("-K", "--key-pass", dest="keypass", metavar="<password>", default=None,
-        help="The password to be used when use the private key file).")
-    parser.add_argument("-o", "--outfile", dest="outfile", default=None, metavar="<file>",
-        help="Location of the file where the results will be saved.")
-    parser.add_argument("-a", "--authfile", dest="authfile", default=None, metavar="<file>",
-        help='Location of the file containing the credentials to be used for connections (format is "username:password").')
-    parser.add_argument("-T", "--threads", dest="max_threads", type=int, default=10, metavar="<int>",
-        help="Number of threads to spawn for simultaneous connection attempts [default: 10].")
-    parser.add_argument("-P", "--port", dest="port", type=int, default=22, metavar="<port>",
-        help="The port to be used when connecting.  Defaults to 22.")
-    parser.add_argument("-u", "--username", dest="username", default=default_username, metavar="<username>",
-        help="The username to be used when connecting.  Defaults to the currently logged-in user [{}].".format(default_username))
-    parser.add_argument("-p", "--password", dest="password", default=None, metavar="<password>",
-        help="The password to be used when connecting (not recommended--use an authfile unless the username and password are transient).")
-    parser.add_argument("-q", "--quiet", action="store_false", dest="verbose", default=True,
-        help="Don't print status messages to stdout (only print errors).")
-    parser.add_argument("-d", "--dest", dest="remote_filepath", default="/tmp/", metavar="<path>",
-        help="Path where the file should be copied on the remote host (default: /tmp/).")
-    parser.add_argument("-x", "--execute", action="store_true", dest="execute", default=False,
-        help="Execute the copied file (just like executing a given command).")
-    parser.add_argument("-r", "--remove", action="store_true", dest="remove", default=False,
-        help="Remove (clean up) the SFTP'd file after execution.")
-    parser.add_argument("-t", "--timeout", dest="timeout", default=30, metavar="<seconds>",
-        help="Timeout (in seconds) before giving up on an SSH connection (default: 30)")
-    parser.add_argument("-s", "--sudo", nargs="?", action="store", dest="sudo", default=False,
-        help="Use sudo to execute the command (default: as root).")
-    parser.add_argument("-X", "--passwordless", action="store_true", dest="passwordless", default=False,
-        help="Use ssh keys without a password")
+                            help="Configuration file with JSON Format. ex)--json path, server")
+
+    parser.add_argument("-k", "--key-file", dest="keyfile",
+                        default=env.get("SSHPT_KEYFILE", "-"), metavar="<file>", nargs="?",
+                        help="Location of the private key file.  If provided without a value, "
+                        "defaults to /home/<username>/.ssh/id_rsa")
+
+    parser.add_argument("-K", "--key-pass", dest="keypass", metavar="<password>",
+                        default=env.get("SSHPT_KEYPASS"),
+                        help="The password to be used when use the private key file).")
+
+    parser.add_argument("-o", "--outfile", dest="outfile",
+                        default=env.get("SSHPT_OUTFILE"), metavar="<file>",
+                        help="Location of the file where the results will be saved.")
+
+    parser.add_argument("-a", "--authfile", dest="authfile",
+                        default=env.get("SSHPT_AUTHFILE"), metavar="<file>",
+                        help='Location of the file containing the credentials to be used for '
+                        'connections (format is "username:password").')
+
+    parser.add_argument("-T", "--threads", dest="max_threads", type=int,
+                        default=int(env.get("SSHPT_THREADS", 10)), metavar="<int>",
+                        help="Number of threads to spawn for simultaneous connection attempts "
+                        "[default: 10].")
+
+    parser.add_argument("-P", "--port", dest="port", type=int,
+                        default=int(env.get("SSHPT_PORT", 22)), metavar="<port>",
+                        help="The port to be used when connecting.  Defaults to 22.")
+
+    parser.add_argument("-u", "--username", dest="username",
+                        default=env.get("SSHPT_USERNAME", default_username),
+                        metavar="<username>",
+                        help="The username to be used when connecting. "
+                        "Defaults to the currently logged-in user [{}].".format(default_username))
+
+    parser.add_argument("-p", "--password", dest="password",
+                        default=env.get("SSHPT_PASSWORD"), metavar="<password>",
+                        help="The password to be used when connecting (not recommended--use an "
+                        "authfile unless the username and password are transient).")
+
+    parser.add_argument("-q", "--quiet", action="store_false", dest="verbose",
+                        default=bool(env.get("SSHPT_QUIET", True)),
+                        help="Don't print status messages to stdout (only print errors).")
+
+    parser.add_argument("-d", "--dest", dest="remote_filepath",
+                        default=env.get("SSHPT_REMOTE_FILEPATH", "/tmp/"), metavar="<path>",
+                        help="Path where the file should be copied on the remote host "
+                        "(default: /tmp/).")
+
+    parser.add_argument("-x", "--execute", action="store_true", dest="execute",
+                        default=bool(env.get("SSHPT_EXECUTE", False)),
+                        help="Execute the copied file (just like executing a given command).")
+
+    parser.add_argument("-r", "--remove", action="store_true", dest="remove",
+                        default=bool(env.get("SSHPT_REMOVE", False)),
+                        help="Remove (clean up) the SFTP'd file after execution.")
+
+    parser.add_argument("-t", "--timeout", dest="timeout",
+                        default=int(env.get("SSHPT_TIMEOUT", 30)), metavar="<seconds>",
+                        help="Timeout (in seconds) before giving up on an SSH connection "
+                        "(default: 30)")
+
+    parser.add_argument("-s", "--sudo", nargs="?", action="store", dest="sudo",
+                        default=False,
+                        const='root',
+                        help="Use sudo to execute the command (default: as root).")
+
+    parser.add_argument("-X", "--passwordless", action="store_true", dest="passwordless",
+                        default=bool(env.get("SSHPT_PASSWORDLESS", False)),
+                        help="Use ssh keys without a password")
+
     parser.add_argument("-O", "--output-format", dest="output_format",
-        choices=['csv', 'json'], default="csv",
-        help="Ouptut format")
+                        choices=['csv', 'json'],
+                        default=env.get("SSHPT_OUTPUT_FORMAT", "csv"),
+                        help="Output format")
+
     parser.add_argument("--debug", dest="debug_level",
-        choices=['err', 'warn', 'info', 'debug'], default="warn",
-        help="Level of debug messages, defaults to [warn]")
+                        choices=['err', 'warn', 'info', 'debug'], default="warn",
+                        help="Level of debug messages, defaults to [warn]")
 
 
     # we use a default of "-" for the -C/ssh-config option to differentiate from None
     #    -        = -C not provided, eventually set it to None
-    #    None     = -C passed with no arg, set to default .sshconfig relative user
+    #    None     = -C passed with no arg, set to default .sshconfig relative to username
     #    anything = <anything> passed as the arg
-    parser.add_argument("-C", "--ssh-config", dest="sshconfig", default="-", metavar="<file>", nargs="?",
-        help=f"use ssh config file for hosts.  Defaults to /home/{default_username}/.ssh/config")
+    parser.add_argument("-C", "--ssh-config", dest="sshconfig",
+                        default=env.get("SSHPT_SSHCONFIG", "-"), metavar="<file>", nargs="?",
+                        help="use ssh config file for hosts. "
+                        "Defaults to /home/{}/.ssh/config".format("default_username"))
 
     action_group = parser.add_mutually_exclusive_group(required=True)
-    action_group.add_argument("-c", "--copy-file", dest="local_filepath", default=None, metavar="<file>",
-        help="Location of the file to copy to and optionally execute (-x) on hosts.")
+    action_group.add_argument("-c", "--copy-file", dest="local_filepath",
+                              default=None, metavar="<file>",
+                              help="Location of the file to copy to and optionally execute "
+                              "(-x) on hosts.")
+
     action_group.add_argument('commands', metavar='Commands', type=str, nargs='*', default=False,
-        help='Commands')
+                              help='Commands')
 
     options = parser.parse_args()
 
@@ -170,8 +233,13 @@ def create_argument():
         credentials = open(options.authfile).readline()
         options.username, options.password = credentials.split(":")
         # Get rid of trailing newline
-        options.password = Password(password.rstrip('\n'))
-    options.sudo = 'root' if options.sudo is None else options.sudo
+        options.password = Password(options.password.rstrip('\n'))
+
+    sudo_env = env.get("SSHPT_SUDO")
+    if sudo_env and options.sudo:
+        options.sudo = sudo_env
+    elif options.sudo is None:
+        options.sudo = 'root'
 
     # Get the username and password to use when checking hosts
     if options.username is None:
@@ -179,8 +247,8 @@ def create_argument():
 
     # if keyfile is None, use the default, if it's the default-delimiter, set it to None
     if options.keyfile is None:
-        options.keyfile = f"/home/{options.username}/.ssh/id_rsa"
-        print(f"using default keyfile: {options.keyfile}")
+        options.keyfile = "/home/{}/.ssh/id_rsa".format(options.username)
+        print("using default keyfile: {}").format(options.keyfile)
     elif options.keyfile == "-":
         options.keyfile = None
 
@@ -189,14 +257,14 @@ def create_argument():
     elif options.password is None and not options.passwordless:
         options.password = Password(getpass.getpass('Password: '))
         if options.password == '':
-            print ('\nPlease type the password')
+            print('\nPlease type the password')
             raise Exception('Please type the password')
 
     # if sshconfig is None, use the default relative to username
     # if it's "-", set it to None
     if options.sshconfig is None:
-        options.sshconfig = f"/home/{options.username}/.ssh/config"
-        print(f"using default ssh-config file: {options.sshconfig}")
+        options.sshconfig = "/home/{}/.ssh/config".format(options.username)
+        print("using default ssh-config file: {}").format(options.sshconfig)
     elif options.sshconfig == '-':
         options.sshconfig = None
 
@@ -205,7 +273,9 @@ def create_argument():
 
 
 def main():
-    """Main program function:  Grabs command-line arguments, starts up threads, and runs the program.
+    """
+        Main program function:
+            Grabs command-line arguments, starts up threads, and runs the program.
     """
     # Grab command line arguments and the command to run (if any)
     options = create_argument()
@@ -219,7 +289,7 @@ def main():
         # Just to be safe we wait for the OutputThread to finish before moving on
         output_queue.join()
     except KeyboardInterrupt:
-        print ('caught KeyboardInterrupt, exiting...')
+        print('caught KeyboardInterrupt, exiting...')
         # Return code should be 1 if the user issues a SIGINT (control-C)
         # Clean up
         stopSSHQueue()
